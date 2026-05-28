@@ -10,6 +10,9 @@
 6. Update docs when behavior or contracts changed.
 7. Commit only related files.
 
+Before editing code, read [Coding Rules](coding-rules.md) and [Agent Instructions](../AGENTS.md).
+The default persistence stack is Pydantic schemas plus SQLAlchemy 2.x models plus Alembic migrations.
+
 ## Branch Flow
 
 ```text
@@ -28,10 +31,12 @@ Rules:
 ## Local Development Flow
 
 ```text
-docker compose up -d
-alembic upgrade head
-pytest
-python -m core.api
+uv sync --dev
+docker compose -f infra/docker-compose.yml up -d --wait
+uv run alembic upgrade head
+uv run pytest tests/unit
+AGENT_SUPPORT_RUN_INTEGRATION=1 uv run pytest tests/integration
+uv run uvicorn core.api.main:app --reload
 ```
 
 Expected local services:
@@ -40,6 +45,22 @@ Expected local services:
 - Redis for streams and background jobs.
 - Qdrant for vector search.
 - Optional local LLM mock for tests.
+
+Useful probes:
+
+```text
+curl http://127.0.0.1:8000/healthz
+curl http://127.0.0.1:6333/healthz
+docker exec infra-redis-1 redis-cli ping
+uv run alembic current
+```
+
+When a migration changes, prove rollback:
+
+```text
+uv run alembic downgrade base
+uv run alembic upgrade head
+```
 
 ## Implementation Order Inside a Slice
 
@@ -50,6 +71,8 @@ Expected local services:
 5. Observability.
 6. Tests.
 7. Docs.
+
+Keep dependency direction clean: API calls service/domain, domain stays framework-free, persistence owns DB access.
 
 ## Testing Flow
 

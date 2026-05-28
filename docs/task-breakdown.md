@@ -9,6 +9,7 @@
 | M0-003 | Add Python service scaffold. | `core/api` starts and returns `/healthz`. |
 | M0-004 | Add CI. | Lint, type, test, secret scan run on push. |
 | M0-005 | Add config loading. | Environment config validates required values. |
+| M0-006 | Add agent instructions. | `AGENTS.md` points agents to docs, validation, and architecture boundaries. |
 
 ## Milestone 1: Tenancy
 
@@ -19,6 +20,7 @@
 | M1-003 | Implement RLS session helper. | Tests prove RLS blocks cross-tenant reads. |
 | M1-004 | Add audit log. | Config mutations create audit rows. |
 | M1-005 | Add admin API auth placeholder. | Unauthorized requests are rejected. |
+| M1-006 | Add repository layer conventions. | SQLAlchemy repositories keep DB access out of routes and domain logic. |
 
 ## Milestone 2: Messaging
 

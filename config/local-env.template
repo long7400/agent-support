@@ -1,0 +1,7 @@
+# Local development defaults only. Copy values into your private shell/profile as needed.
+AGENT_SUPPORT_SERVICE_NAME=Agent Support
+AGENT_SUPPORT_SERVICE_VERSION=0.1.0
+AGENT_SUPPORT_DATABASE_ADMIN_URL=postgresql+psycopg://agent_support_admin:agent_support_admin@localhost:5432/agent_support # pragma: allowlist secret
+AGENT_SUPPORT_DATABASE_URL=postgresql+psycopg://agent_support_app:agent_support_app@localhost:5432/agent_support # pragma: allowlist secret
+AGENT_SUPPORT_REDIS_URL=redis://localhost:6379/0
+AGENT_SUPPORT_QDRANT_URL=http://localhost:6333

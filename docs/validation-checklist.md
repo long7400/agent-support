@@ -10,9 +10,30 @@
 - [ ] Migrations downgrade or rollback path is documented.
 - [ ] New tenant-owned tables have `tenant_id`.
 - [ ] New tenant-owned tables have RLS policy.
+- [ ] New tenant-owned tables use `FORCE ROW LEVEL SECURITY`.
+- [ ] RLS tests use app role, not owner/superuser.
 - [ ] New external calls have timeout.
 - [ ] New tool calls are audited.
 - [ ] Docs updated for changed contracts.
+
+Current local commands:
+
+```text
+uv run ruff check .
+uv run mypy .
+uv run pytest tests/unit
+docker compose -f infra/docker-compose.yml up -d --wait
+uv run alembic upgrade head
+AGENT_SUPPORT_RUN_INTEGRATION=1 uv run pytest tests/integration
+uv run python scripts/check_secret_scan.py
+```
+
+When migrations change:
+
+```text
+uv run alembic downgrade base
+uv run alembic upgrade head
+```
 
 ## Tenant Isolation
 

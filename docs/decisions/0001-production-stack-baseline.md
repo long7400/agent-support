@@ -21,7 +21,7 @@ Use this baseline:
 | --- | --- |
 | Chat adapters | Node.js, grammY, discord.js |
 | Control plane | Python, FastAPI |
-| Persistence | PostgreSQL, Alembic, RLS |
+| Persistence | PostgreSQL, SQLAlchemy 2.x, Alembic, RLS |
 | Bus and jobs | Redis Streams, ARQ where Python-native |
 | Agent workflow | LangGraph |
 | Tool boundary | MCP |
@@ -37,6 +37,7 @@ Use this baseline:
 - TurboVec is a candidate accelerator with a formal adoption flow in ADR 0002.
 - Tenant isolation must be validated in both PostgreSQL and Qdrant.
 - Dedicated Qdrant collections are allowed only for enterprise isolation, high volume, or different embedding models.
+- Pydantic schemas and SQLAlchemy ORM models remain separate. SQLModel is not part of the baseline unless a later ADR accepts it.
 
 ## Alternatives Considered
 

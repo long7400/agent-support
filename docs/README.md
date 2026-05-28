@@ -13,8 +13,9 @@ This directory is the source of truth for the Crypto Agent Platform design.
 6. [Implementation Flow](implementation-flow.md) - day-to-day build and delivery loop.
 7. [Validation Checklist](validation-checklist.md) - gates before merge, release, and production.
 8. [Coding Rules](coding-rules.md) - code standards for this repo.
-9. [ADR 0001](decisions/0001-production-stack-baseline.md) - accepted stack baseline and rejected assumptions.
-10. [ADR 0002](decisions/0002-turbovec-read-path-accelerator.md) - TurboVec evaluation and adoption gates.
+9. [Agent Instructions](../AGENTS.md) - operating rules for coding agents.
+10. [ADR 0001](decisions/0001-production-stack-baseline.md) - accepted stack baseline and rejected assumptions.
+11. [ADR 0002](decisions/0002-turbovec-read-path-accelerator.md) - TurboVec evaluation and adoption gates.
 
 ## Documentation Rules
 
@@ -22,3 +23,4 @@ This directory is the source of truth for the Crypto Agent Platform design.
 - Keep local scratch plans out of git under `plans/` or `plan/`.
 - Update `docs/decisions/` when a production decision changes.
 - Update the validation checklist before adding new runtime surfaces.
+- Keep `AGENTS.md` aligned with `docs/coding-rules.md` when agent workflow or code standards change.
