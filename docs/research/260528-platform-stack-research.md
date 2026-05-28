@@ -123,7 +123,7 @@ It should not couple the backend to either framework until there is a direct bus
 
 ## Production Recommendations
 
-1. Build the core as a Python service boundary first: FastAPI, SQLModel or SQLAlchemy, Alembic, Redis, Qdrant, LangGraph.
+1. Build the core as a Python service boundary first: FastAPI, SQLAlchemy 2.x, Alembic, Redis, Qdrant, LangGraph. Keep Pydantic schemas separate from ORM models.
 2. Keep Node adapters thin. They should translate Telegram/Discord events into internal envelopes and emit responses.
 3. Use MCP only at capability boundaries. Internal DB reads, tenant config, and moderation policy are not MCP tools by default.
 4. Use Postgres RLS plus application-level tenant checks. RLS is a backstop, not the only guard.

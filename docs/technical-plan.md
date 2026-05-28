@@ -30,7 +30,8 @@ Goal: tenant config, platform connections, plugin config, and RLS-backed metadat
 Deliverables:
 
 - FastAPI app.
-- SQLAlchemy or SQLModel models.
+- SQLAlchemy 2.x models.
+- Pydantic request/response/config schemas kept separate from ORM models.
 - Alembic migrations.
 - RLS middleware/session helper.
 - CRUD for tenants, knowledge sources, plugins.
