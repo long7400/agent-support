@@ -10,7 +10,7 @@ The original `spec.md` proposes a layered crypto community agent SaaS using Agen
 
 Research confirmed the general architecture but found two implementation risks:
 
-- `TurboVecVectorStore` is not accepted as a stable production baseline.
+- TurboVec is promising as a local compressed read-path accelerator, but it should not replace the durable vector store in v1.
 - One Qdrant collection per tenant can become operationally expensive at scale.
 
 ## Decision
@@ -25,7 +25,8 @@ Use this baseline:
 | Bus and jobs | Redis Streams, ARQ where Python-native |
 | Agent workflow | LangGraph |
 | Tool boundary | MCP |
-| RAG read path | LlamaIndex + Qdrant |
+| Durable RAG read path | LlamaIndex + Qdrant |
+| Optional RAG accelerator | TurboVec candidate behind feature flag |
 | RAG write path | CocoIndex adapter or equivalent indexing worker |
 | Vector storage | Qdrant shared collection with tenant payload filters by default |
 | Observability | OpenTelemetry-compatible traces, Langfuse-compatible LLM traces |
@@ -33,7 +34,7 @@ Use this baseline:
 ## Consequences
 
 - ElizaOS and AgentScope remain design references, not runtime dependencies.
-- TurboVec is experimental until proven with maintained docs, package support, and benchmark.
+- TurboVec is a candidate accelerator with a formal adoption flow in ADR 0002.
 - Tenant isolation must be validated in both PostgreSQL and Qdrant.
 - Dedicated Qdrant collections are allowed only for enterprise isolation, high volume, or different embedding models.
 
@@ -53,4 +54,4 @@ Rejected as the default. It can be used for specific tenants but should not be t
 
 ### TurboVec as Required Read Path
 
-Rejected as baseline. Keep it behind an experimental adapter only after proof.
+Rejected as required baseline. Keep it behind a feature flag until ADR 0002 gates pass.

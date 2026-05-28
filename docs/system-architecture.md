@@ -42,6 +42,7 @@ flowchart TD
         PG[(PostgreSQL + RLS)]
         RD[(Redis)]
         QD[(Qdrant)]
+        TV[(TurboVec optional cache)]
         OBJ[(Object storage)]
     end
 
@@ -53,6 +54,8 @@ flowchart TD
     API --> Engine
     Engine --> Tools
     Tools --> QD
+    QD --> TV
+    Tools --> TV
     Tools --> WEB
     Engine --> OUT
     OUT --> TG
@@ -76,6 +79,7 @@ flowchart TD
 | MCP servers | External capabilities and tool contracts. | No broad tenant access. |
 | PostgreSQL | Transactional source of truth. | RLS on tenant-owned tables. |
 | Qdrant | Knowledge vector index. | Payload filters are mandatory. |
+| TurboVec | Optional local compressed read-path accelerator. | Feature-flagged; rebuildable from durable data. |
 | CocoIndex workers | Incremental source sync and indexing. | Jobs are idempotent. |
 
 ## Message Envelope
@@ -173,6 +177,18 @@ Dedicated tenant collections are allowed only when one of these is true:
 - Enterprise isolation requirement.
 - Tenant has enough volume to justify operational overhead.
 - Tenant uses a separate embedding model or retention policy.
+
+## TurboVec Accelerator
+
+TurboVec is not the source of truth. It can be added after the Qdrant provider works and only behind `RAG_ACCELERATOR=turbovec`.
+
+Runtime contract:
+
+- Qdrant stores durable embeddings, payload, and citation metadata.
+- TurboVec stores a rebuildable local compressed index.
+- Tenant/source ACL resolution happens before or inside provider query.
+- Query output shape must match the Qdrant provider.
+- Corrupt, stale, or missing TurboVec indexes must fall back to Qdrant or fail closed.
 
 ## Security Boundaries
 

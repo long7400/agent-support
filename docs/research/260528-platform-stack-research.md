@@ -9,7 +9,7 @@ The original stack is directionally good: Node adapters for chat platforms, Fast
 
 Two assumptions need tightening before implementation:
 
-- `TurboVecVectorStore` is not accepted as baseline. The production baseline is LlamaIndex with the official Qdrant integration. TurboVec stays experimental until a maintained integration and benchmark are proven.
+- `TurboVec` is stronger than the first-pass assumption. It has a maintained PyPI package, Rust core, Python bindings, LlamaIndex integration, filtered search, async methods, and local persist/load support. It is still not the durable production store because it is a local index library and PyPI still classifies it as Alpha.
 - "One Qdrant collection per tenant" is not the default. Qdrant recommends partitioning by payload for many tenants; dedicated collections are reserved for enterprise or high-volume tenants.
 
 ## Sources Consulted
@@ -21,6 +21,9 @@ Two assumptions need tightening before implementation:
 | FastAPI deployment | https://fastapi.tiangolo.com/deployment/concepts/ |
 | Qdrant multi-tenancy | https://qdrant.tech/documentation/guides/multiple-partitions/ |
 | LlamaIndex Qdrant | https://docs.llamaindex.ai/en/stable/examples/vector_stores/QdrantIndexDemo/ |
+| TurboVec repository | https://github.com/RyanCodrai/turbovec |
+| TurboVec LlamaIndex integration | https://github.com/RyanCodrai/turbovec/blob/main/docs/integrations/llama_index.md |
+| TurboVec PyPI metadata | https://pypi.org/project/turbovec/ |
 | CocoIndex docs entry | https://cocoindex.io/docs/ |
 | ElizaOS docs index | https://docs.elizaos.ai/llms.txt |
 | AgentScope v2 docs index | https://docs.agentscope.io/llms.txt |
@@ -66,7 +69,7 @@ Baseline MCP tool classes:
 
 ### 4. RAG and Knowledge Indexing
 
-LlamaIndex + Qdrant is the safer baseline. CocoIndex can own incremental crawling/indexing, but each connector must be proven with integration tests before it becomes production-critical.
+LlamaIndex + Qdrant is the durable baseline. CocoIndex can own incremental crawling/indexing, but each connector must be proven with integration tests before it becomes production-critical.
 
 Baseline read path:
 
@@ -74,6 +77,15 @@ Baseline read path:
 - Qdrant vector search filtered by `tenant_id`, `source_id`, and visibility metadata.
 - Optional hybrid search/rerank.
 - Prompt context builder with citation metadata.
+
+TurboVec read-path candidate:
+
+- Package: `turbovec`, current verified PyPI version on 2026-05-28 is `0.6.0`.
+- LlamaIndex class: `turbovec.llama_index.TurboQuantVectorStore`.
+- Install extra: `pip install turbovec[llama-index]`.
+- Useful features: `IdMapIndex`, search-time allowlist filtering, async methods, upsert semantics, local persist/load.
+- Known limits: Alpha classifier, local filesystem persistence, JSON-serializable metadata only, no MMR, no recovered full-precision embeddings, not a managed/distributed vector database.
+- Accepted role: opt-in hot read-path accelerator or local compressed cache in front of durable Qdrant, not the authoritative vector store.
 
 Baseline write path:
 
@@ -117,6 +129,7 @@ It should not couple the backend to either framework until there is a direct bus
 4. Use Postgres RLS plus application-level tenant checks. RLS is a backstop, not the only guard.
 5. Treat every LLM output as untrusted until policy-checked and bounded by tool permissions.
 6. Build with tracing and replay from day one. Agent bugs are easiest to fix from durable event logs.
+7. Evaluate TurboVec in a dedicated spike after Qdrant RAG is working. Promote it only if benchmark, isolation, rebuild, and fallback gates pass.
 
 ## Open Questions
 

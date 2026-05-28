@@ -14,6 +14,7 @@ This directory is the source of truth for the Crypto Agent Platform design.
 7. [Validation Checklist](validation-checklist.md) - gates before merge, release, and production.
 8. [Coding Rules](coding-rules.md) - code standards for this repo.
 9. [ADR 0001](decisions/0001-production-stack-baseline.md) - accepted stack baseline and rejected assumptions.
+10. [ADR 0002](decisions/0002-turbovec-read-path-accelerator.md) - TurboVec evaluation and adoption gates.
 
 ## Documentation Rules
 

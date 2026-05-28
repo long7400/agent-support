@@ -62,6 +62,23 @@ Expected local services:
 | Replay | Agent run can be replayed with mocked tool/LLM output. |
 | Load | Chat ingress, RAG query, sync workers before release. |
 
+## TurboVec Adoption Flow
+
+TurboVec is not a default dependency of the durable RAG path. Use this flow when working on `M4-007` through `M4-009`.
+
+1. Finish the Qdrant provider first.
+2. Create `VectorSearchProvider` contract with tenant/source filters, top-k, score, citation metadata, and trace fields.
+3. Implement TurboVec provider behind `RAG_ACCELERATOR=turbovec`.
+4. Keep Qdrant as rebuild source and fallback path.
+5. Run the same fixture corpus through Qdrant and TurboVec.
+6. Compare recall, p95 latency, memory, build time, persist/load time, and answer citation quality.
+7. Test selective tenant/source filters with small allowlists.
+8. Test local persist/load and cold start.
+9. Test fallback by corrupting or deleting the TurboVec index.
+10. Update [ADR 0002](decisions/0002-turbovec-read-path-accelerator.md) with the result.
+
+Do not enable TurboVec by default until the ADR status changes from `Proposed` to `Accepted`.
+
 ## Release Flow
 
 1. Freeze release branch.

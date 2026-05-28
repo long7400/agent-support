@@ -56,6 +56,16 @@ docs/
 - Vector queries must include tenant filter.
 - Logs must include tenant id and trace id, but never secrets.
 
+## Vector Search Rules
+
+- All vector search implementations must satisfy one `VectorSearchProvider` contract.
+- Qdrant is the durable provider and source of truth.
+- TurboVec is optional until ADR 0002 is accepted.
+- Accelerator indexes must be rebuildable from durable data.
+- Accelerator indexes must be feature-flagged.
+- Provider results must include score, chunk id, source id, document id, and citation metadata.
+- Provider tests must cover tenant filters, source filters, empty filters, deleted chunks, persist/load, and fallback.
+
 ## MCP Tool Rules
 
 - Tool names use namespace format: `domain.action`.

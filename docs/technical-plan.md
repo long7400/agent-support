@@ -89,6 +89,8 @@ Deliverables:
 - CocoIndex or fallback indexing worker adapter.
 - Qdrant collection and payload indexes.
 - LlamaIndex Qdrant query service.
+- `VectorSearchProvider` interface with Qdrant as the first implementation.
+- TurboVec accelerator spike behind feature flag after Qdrant baseline passes.
 - Citation-aware context builder.
 
 Exit criteria:
@@ -96,6 +98,26 @@ Exit criteria:
 - Tenant A vector queries cannot return tenant B chunks.
 - Sync is idempotent.
 - Failed source produces actionable sync error.
+- TurboVec is not enabled by default and can be disabled without data migration.
+
+### Phase 4A: TurboVec Accelerator Spike
+
+Goal: decide whether TurboVec should become an accepted read-path accelerator.
+
+Deliverables:
+
+- `TurboVecVectorSearchProvider` using `turbovec[llama-index]`.
+- Fixture corpus shared with Qdrant provider tests.
+- Benchmark script for recall, p95 latency, memory, build time, and persist/load time.
+- Rebuild flow from Qdrant/source chunk data.
+- Feature flag: `RAG_ACCELERATOR=none|turbovec`.
+
+Exit criteria:
+
+- ADR 0002 gates pass, or TurboVec stays disabled.
+- Tenant/source filtering behaves the same as Qdrant baseline.
+- TurboVec failure falls back to Qdrant or fails closed.
+- Metrics expose accelerator hit rate, build time, load time, errors, and fallback count.
 
 ## Phase 5: MCP Tools and Plugin Runtime
 

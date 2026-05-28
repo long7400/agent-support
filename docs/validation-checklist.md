@@ -43,6 +43,19 @@
 - [ ] No answer is generated from empty retrieval unless fallback policy allows it.
 - [ ] Evaluation set covers official links, tokenomics, roadmap, scam examples, and stale docs.
 
+## TurboVec Accelerator Gate
+
+- [ ] Qdrant baseline provider is implemented first.
+- [ ] TurboVec is behind `RAG_ACCELERATOR=turbovec`.
+- [ ] TurboVec can be disabled without data migration.
+- [ ] TurboVec tenant/source filtering matches Qdrant provider behavior.
+- [ ] TurboVec benchmark uses the same fixture corpus as Qdrant.
+- [ ] Recall, p95 latency, RAM, build time, and persist/load time are recorded.
+- [ ] Persist/load works in the deployed runtime layout.
+- [ ] Index rebuild from Qdrant/source chunks is tested.
+- [ ] Corrupt or missing TurboVec index falls back to Qdrant or fails closed.
+- [ ] ADR 0002 is updated before changing the default.
+
 ## Observability
 
 - [ ] Every request has `trace_id`.

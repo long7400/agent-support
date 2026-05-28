@@ -49,6 +49,10 @@
 | M4-003 | Build index worker. | Source chunks upsert into Qdrant with tenant payload. |
 | M4-004 | Build query service. | Query filters by tenant and returns citations. |
 | M4-005 | Add isolation tests. | Cross-tenant vector leakage test fails closed. |
+| M4-006 | Add vector provider interface. | Qdrant provider satisfies shared query contract. |
+| M4-007 | Add TurboVec spike provider. | Provider is feature-flagged and disabled by default. |
+| M4-008 | Add RAG benchmark fixtures. | Qdrant and TurboVec run against same corpus and queries. |
+| M4-009 | Add TurboVec rebuild/fallback tests. | Local index can rebuild and failures fall back or fail closed. |
 
 ## Milestone 5: Tools
 
