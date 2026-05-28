@@ -1,0 +1,65 @@
+# Validation Checklist
+
+## Pre-Merge
+
+- [ ] Tests pass locally.
+- [ ] Type checks pass.
+- [ ] Lint passes.
+- [ ] No secrets in diff.
+- [ ] Migrations upgrade from empty DB.
+- [ ] Migrations downgrade or rollback path is documented.
+- [ ] New tenant-owned tables have `tenant_id`.
+- [ ] New tenant-owned tables have RLS policy.
+- [ ] New external calls have timeout.
+- [ ] New tool calls are audited.
+- [ ] Docs updated for changed contracts.
+
+## Tenant Isolation
+
+- [ ] API rejects missing tenant context.
+- [ ] Tenant A cannot read tenant B rows.
+- [ ] Tenant A cannot query tenant B Qdrant chunks.
+- [ ] Tenant A cannot invoke tenant B enabled tools.
+- [ ] Tenant A cannot access tenant B source documents.
+- [ ] Redis envelopes include tenant id and trace id.
+- [ ] Background jobs re-load and verify tenant context before doing work.
+
+## Agent Safety
+
+- [ ] LLM output is policy-checked before sending.
+- [ ] Tool calls are allowlisted per tenant.
+- [ ] Tool input schemas reject unknown fields.
+- [ ] Tool output is bounded before entering prompts.
+- [ ] Prompt templates are validated.
+- [ ] Low-confidence RAG answers refuse or escalate.
+- [ ] Destructive moderation actions require explicit tenant policy.
+
+## RAG Quality
+
+- [ ] Source sync is idempotent.
+- [ ] Chunk payload includes tenant id, source id, document id, and version.
+- [ ] Query filters by tenant id.
+- [ ] Answers include citations when source-backed.
+- [ ] No answer is generated from empty retrieval unless fallback policy allows it.
+- [ ] Evaluation set covers official links, tokenomics, roadmap, scam examples, and stale docs.
+
+## Observability
+
+- [ ] Every request has `trace_id`.
+- [ ] Every graph node logs latency and status.
+- [ ] Every LLM call records provider, model, token usage, and error.
+- [ ] Every tool call records status, timeout, and redacted summary.
+- [ ] Every moderation action records policy version.
+- [ ] Dashboards show p95 latency, error rate, tool failures, sync failures, and token cost.
+
+## Production Release
+
+- [ ] Staging deployment passed smoke tests.
+- [ ] Backup and restore tested.
+- [ ] Rollback image is available.
+- [ ] Migration plan reviewed.
+- [ ] Secrets are configured outside git.
+- [ ] Rate limits are configured.
+- [ ] Alert routes are configured.
+- [ ] Incident runbook exists.
+- [ ] One sandbox tenant passes end-to-end Telegram or Discord flow.
