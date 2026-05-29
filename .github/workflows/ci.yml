@@ -30,6 +30,22 @@ jobs:
       - name: Unit tests
         run: uv run pytest tests/unit
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Telegram adapter dependencies
+        run: npm install --prefix adapters/telegram-bot --package-lock=false
+
+      - name: Telegram adapter lint
+        run: npm --prefix adapters/telegram-bot run lint
+
+      - name: Telegram adapter type check
+        run: npm --prefix adapters/telegram-bot run typecheck
+
+      - name: Telegram adapter tests
+        run: npm --prefix adapters/telegram-bot test
+
       - name: Start local services
         run: docker compose -f infra/docker-compose.yml up -d --wait
 

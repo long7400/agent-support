@@ -86,12 +86,13 @@ uv run uvicorn core.api.main:app --host 127.0.0.1 --port 8000
 ```
 
 Seed a tenant platform mapping with an admin DB session or an admin setup helper,
-then send a normalized event:
+including non-secret `config.adapter_credential_id =
+local-telegram-sandbox`, then send a normalized event:
 
 ```text
 curl -X POST http://127.0.0.1:8000/internal/messages/ingest \
   -H "Content-Type: application/json" \
-  -H "X-Internal-Token: local-internal-token" \
+  -H "X-Adapter-Token: local-adapter-token" \
   -d '{
     "trace_id": "00000000-0000-4000-8000-000000000001",
     "platform": "telegram",
@@ -137,6 +138,80 @@ Expected failure semantics:
   pending `stream_outbox` row remain durable for retry.
 - Worker outbound publish failure leaves ingress pending because ACK happens only
   after publish success.
+- Reclaim moves stale pending ingress entries through `XAUTOCLAIM`; retry-limit
+  entries are copied to DLQ before the original ingress entry is ACKed.
+
+## Phase 2B Telegram Sandbox And Reclaim Runbook
+
+Run the control plane and local services as above, then configure the Telegram
+adapter from private shell environment values:
+
+```text
+AGENT_SUPPORT_ADAPTER_TOKEN=local-adapter-token
+AGENT_SUPPORT_ADAPTER_CREDENTIAL_ID=local-telegram-sandbox
+AGENT_SUPPORT_ADAPTER_PLATFORM=telegram
+AGENT_SUPPORT_ADAPTER_EXTERNAL_WORKSPACE_ID=sandbox-workspace
+AGENT_SUPPORT_ADAPTER_EXTERNAL_CHANNEL_ID=*
+AGENT_SUPPORT_CONTROL_PLANE_URL=http://127.0.0.1:8000
+TELEGRAM_BOT_TOKEN=<private bot token>
+TELEGRAM_EXTERNAL_WORKSPACE_ID=sandbox-workspace
+TELEGRAM_OUTBOUND_STREAM=local:<tenant_id>:outbound:telegram
+TELEGRAM_OUTBOUND_GROUP=telegram-sandbox
+TELEGRAM_OUTBOUND_CONSUMER=telegram-sandbox-1
+```
+
+Adapter package gates:
+
+```text
+npm install --prefix adapters/telegram-bot --package-lock=false
+npm --prefix adapters/telegram-bot run lint
+npm --prefix adapters/telegram-bot run typecheck
+npm --prefix adapters/telegram-bot test
+```
+
+Start the sandbox adapter with long polling:
+
+```text
+npm --prefix adapters/telegram-bot start
+```
+
+The adapter translates Telegram text updates into the internal inbound envelope
+and sends `X-Adapter-Token` plus `X-Trace-Id` to
+`POST /internal/messages/ingest`. It does not send trusted `tenant_id`. The
+control plane only accepts the adapter credential for the configured
+platform/workspace/channel scope and for platform mappings whose non-secret
+`config.adapter_credential_id` matches `AGENT_SUPPORT_ADAPTER_CREDENTIAL_ID`.
+If `TELEGRAM_OUTBOUND_STREAM` is set, the adapter creates the configured
+outbound consumer group with `MKSTREAM`, retries that consumer's pending entries,
+records a short-lived Redis delivery receipt after `sendMessage` succeeds, and
+ACKs each outbound entry only after the Telegram send has completed. If ACK
+fails after the receipt write, a retry sees the receipt, skips the duplicate
+Telegram send, and ACKs the pending entry. If Redis cannot write the receipt
+after a successful Telegram send, the adapter logs that boundary and still
+attempts the ACK because Telegram does not expose an atomic stream/send
+transaction.
+
+Run one deterministic reclaim/DLQ batch:
+
+```text
+uv run agent-support-message-reclaim \
+  --ingress-stream local:<tenant_id>:ingress:telegram \
+  --outbound-stream local:<tenant_id>:outbound:telegram \
+  --dlq-stream local:<tenant_id>:dlq:telegram
+```
+
+Inspect ingress, outbound, pending, and DLQ:
+
+```text
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XRANGE local:<tenant_id>:ingress:telegram - +
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XPENDING local:<tenant_id>:ingress:telegram message-stub
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XRANGE local:<tenant_id>:outbound:telegram - +
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XRANGE local:<tenant_id>:dlq:telegram - +
+```
+
+Phase 2B remains local/sandbox only. Discord runtime, LangGraph, RAG, MCP,
+production webhook deployment, production secret-manager integration, and Celery
+chat transport remain deferred.
 
 ## Testing Flow
 

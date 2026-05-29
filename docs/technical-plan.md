@@ -67,16 +67,20 @@ Phase 2A messaging backbone deliverables now implemented locally:
 - Deterministic `agent-support-worker-stub` local loop with active-tenant
   verification before processing.
 
-Deferred to Phase 2B:
+Phase 2B Telegram adapter and delivery hardening deliverables now implemented
+locally:
 
 - Real Telegram adapter runtime and sandbox bot.
-- Discord adapter runtime.
+- Adapter-specific `X-Adapter-Token` trust boundary for internal ingest.
+- Explicit outbound delivery envelope for sendable Telegram replies.
 - DLQ/reclaim workflow for repeatedly pending messages.
-- Production auth model for adapter-to-control-plane traffic.
+- `agent-support-message-reclaim` deterministic reclaim/DLQ entrypoint.
 
-Deferred beyond Phase 2:
+Deferred beyond Phase 2B:
 
+- Discord adapter runtime.
 - LangGraph, RAG, MCP, and full agent response generation.
+- Production webhook deployment and production secret-manager integration.
 - Celery for chat ingress/egress. Redis Streams remain the chat transport; Celery
   may be reconsidered later for coarse background jobs.
 
@@ -84,8 +88,11 @@ Exit criteria:
 
 - Local normalized event can echo through DB, Redis ingress, worker stub, and
   Redis outbound.
+- Telegram sandbox adapter can post normalized messages to internal ingest and
+  send deterministic stub outbound responses.
 - Duplicate events do not create duplicate responses.
 - Disabled tenants are rejected before worker publish/ACK.
+- Stale pending ingress entries can be reclaimed or moved to DLQ before ACK.
 - Trace id ties adapter logs to API logs.
 
 ## Phase 3: Agent Engine

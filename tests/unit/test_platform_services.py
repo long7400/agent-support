@@ -64,6 +64,55 @@ def test_platform_service_rejects_secret_like_config_before_persistence() -> Non
     assert repository.created == []
 
 
+def test_platform_service_allows_adapter_credential_id_metadata() -> None:
+    repository = FakeTenantPlatformRepository()
+    service = TenantPlatformService(repository)
+
+    row = service.register_platform(
+        tenant_id=uuid4(),
+        platform=Platform.TELEGRAM,
+        external_workspace_id="workspace-a",
+        external_channel_id="channel-a",
+        config={"adapter_credential_id": "local-telegram-sandbox"},
+    )
+
+    assert row["config"] == {"adapter_credential_id": "local-telegram-sandbox"}
+
+
+def test_platform_service_rejects_secret_like_adapter_credential_id_value() -> None:
+    repository = FakeTenantPlatformRepository()
+    service = TenantPlatformService(repository)
+
+    with pytest.raises(ServiceError) as exc_info:
+        service.register_platform(
+            tenant_id=uuid4(),
+            platform=Platform.TELEGRAM,
+            external_workspace_id="workspace-a",
+            external_channel_id="channel-a",
+            config={"adapter_credential_id": "token=raw-secret"},
+        )
+
+    assert exc_info.value.code == "TENANT_PLATFORM_CONFIG_REJECTED"
+    assert repository.created == []
+
+
+def test_platform_service_rejects_secret_equals_adapter_credential_id_value() -> None:
+    repository = FakeTenantPlatformRepository()
+    service = TenantPlatformService(repository)
+
+    with pytest.raises(ServiceError) as exc_info:
+        service.register_platform(
+            tenant_id=uuid4(),
+            platform=Platform.TELEGRAM,
+            external_workspace_id="workspace-a",
+            external_channel_id="channel-a",
+            config={"adapter_credential_id": "secret=raw-secret"},
+        )
+
+    assert exc_info.value.code == "TENANT_PLATFORM_CONFIG_REJECTED"
+    assert repository.created == []
+
+
 def test_platform_service_maps_duplicate_platform_identity_to_conflict() -> None:
     repository = FakeTenantPlatformRepository()
     repository.raise_integrity = True

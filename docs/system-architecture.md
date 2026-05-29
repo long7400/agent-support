@@ -82,19 +82,28 @@ flowchart TD
 | TurboVec | Optional local compressed read-path accelerator. | Feature-flagged; rebuildable from durable data. |
 | CocoIndex workers | Incremental source sync and indexing. | Jobs are idempotent. |
 
-## Current Phase 2A Messaging Backbone
+## Current Phase 2A/2B Messaging Backbone
 
-Phase 2A establishes the internal messaging backbone without real Telegram or
-Discord bot runtime, LangGraph, RAG, or MCP execution.
+Phase 2A established the internal messaging backbone. Phase 2B adds the first
+real sandbox edge and delivery hardening: Telegram long polling, adapter auth
+separate from admin/internal auth, explicit outbound send envelopes, and Redis
+pending reclaim/DLQ.
 
 ```text
-tenant_platforms
-  -> POST /internal/messages/ingest
+Telegram sandbox adapter
+  -> POST /internal/messages/ingest with X-Adapter-Token
+  -> tenant_platforms
   -> chat_events
   -> stream_outbox
   -> Redis ingress stream
   -> agent-support-worker-stub
   -> Redis outbound stream
+  -> Telegram outbound send loop
+
+Redis pending ingress entries
+  -> agent-support-message-reclaim
+       | success -> Redis outbound stream -> XACK ingress
+       | retry limit -> Redis DLQ stream -> XACK ingress
 ```
 
 Current stream names use this shape:
@@ -106,6 +115,12 @@ Current stream names use this shape:
 Redis is transport only. PostgreSQL owns tenant mapping, durable message event
 metadata, idempotency, and the stream outbox retry state.
 
+Adapter credentials are not trusted tenant ids. The local Phase 2B credential
+resolves to an adapter principal with configured platform/workspace/channel
+scope, and the matched `tenant_platforms.config.adapter_credential_id` must
+equal that principal's non-secret credential id before the control plane writes
+tenant-owned message rows.
+
 Failure semantics:
 
 - Duplicate platform message: returns the existing `chat_event_id` and does not
@@ -114,12 +129,17 @@ Failure semantics:
 - Redis backpressure or publish failure: returns `503 QUEUE_BACKPRESSURE` after
   committing the durable chat event and pending outbox row for retry. The outbox
   row stores the public failure message for retry inspection.
-- Inactive tenant at worker time: raises `TENANT_INACTIVE`; ingress message
-  remains pending because DLQ/reclaim is a later phase.
+- Inactive tenant at worker or reclaim time: raises `TENANT_INACTIVE`; ingress
+  message remains pending and is not ACKed.
 - Worker publish failure before ACK: ingress message remains pending.
 - Worker batch processing isolates per-entry service failures, so one pending
   failed entry does not block later entries from being published and ACKed.
-- Repeated worker failure: future DLQ/reclaim path; not implemented in Phase 2A.
+- Repeated worker failure: reclaim can process stale pending ingress entries, or
+  move retry-limit entries to DLQ before ACKing the original stream entry.
+- Telegram outbound ACK failure after a successful send uses a short-lived Redis
+  delivery receipt keyed by stream/group/message id. A retry with that receipt
+  skips the duplicate Telegram send and ACKs the pending entry; if the receipt
+  write itself fails, the adapter logs the remaining at-least-once boundary.
 
 Redis guardrails:
 
@@ -163,6 +183,23 @@ Trusted stream envelopes are produced only after tenant resolution:
   "user_id": "string",
   "message_id": "string",
   "text_preview": "bounded string"
+}
+```
+
+Outbound delivery envelopes are explicit send contracts rather than preview-only
+stream records:
+
+```json
+{
+  "trace_id": "uuid",
+  "tenant_id": "uuid",
+  "direction": "outbound",
+  "platform": "telegram",
+  "channel_id": "string",
+  "user_id": "string",
+  "reply_to_message_id": "string",
+  "inbound_chat_event_id": "uuid",
+  "text": "bounded string"
 }
 ```
 

@@ -70,10 +70,11 @@ def test_stream_message_envelope_contains_trusted_tenant_and_chat_event() -> Non
 def test_outbound_message_envelope_preserves_trace_and_correlation() -> None:
     trace_id = uuid4()
     inbound_chat_event_id = uuid4()
+    tenant_id = uuid4()
 
     message = OutboundMessageEnvelope(
         trace_id=trace_id,
-        tenant_id=uuid4(),
+        tenant_id=tenant_id,
         platform=Platform.DISCORD,
         channel_id="channel-a",
         user_id="user-a",
@@ -83,8 +84,44 @@ def test_outbound_message_envelope_preserves_trace_and_correlation() -> None:
     )
 
     assert message.trace_id == trace_id
+    assert message.tenant_id == tenant_id
+    assert message.platform == Platform.DISCORD
+    assert message.channel_id == "channel-a"
+    assert message.reply_to_message_id == "message-a"
     assert message.inbound_chat_event_id == inbound_chat_event_id
     assert message.direction == MessageDirection.OUTBOUND
+    assert message.model_dump(mode="json")["text"] == "stub response"
+
+
+def test_outbound_message_envelope_rejects_inbound_direction() -> None:
+    with pytest.raises(ValidationError):
+        OutboundMessageEnvelope.model_validate(
+            {
+                "trace_id": str(uuid4()),
+                "tenant_id": str(uuid4()),
+                "direction": MessageDirection.INBOUND,
+                "platform": Platform.TELEGRAM,
+                "channel_id": "channel-a",
+                "user_id": "user-a",
+                "reply_to_message_id": "message-a",
+                "inbound_chat_event_id": str(uuid4()),
+                "text": "stub response",
+            }
+        )
+
+
+def test_outbound_message_envelope_bounds_send_text() -> None:
+    with pytest.raises(ValidationError):
+        OutboundMessageEnvelope(
+            trace_id=uuid4(),
+            tenant_id=uuid4(),
+            platform=Platform.TELEGRAM,
+            channel_id="channel-a",
+            user_id="user-a",
+            reply_to_message_id="message-a",
+            inbound_chat_event_id=uuid4(),
+            text="x" * 501,
+        )
 
 
 def test_stream_name_uses_environment_shared_direction_and_platform() -> None:
@@ -123,6 +160,12 @@ def test_redis_settings_defaults_are_explicit() -> None:
     assert settings.redis_consumer_block_ms == 5_000
     assert settings.redis_consumer_batch_size == 10
     assert settings.redis_connection_pool_size == 10
+    assert settings.adapter_token == "local-adapter-token"
+    assert settings.adapter_credential_id == "local-telegram-sandbox"
+    assert settings.redis_reclaim_idle_millis == 300_000
+    assert settings.redis_reclaim_retry_limit == 3
+    assert settings.redis_reclaim_batch_size == 10
+    assert settings.redis_dlq_max_length == 10_000
 
 
 def test_uuid_fields_accept_strings_and_dump_as_json_strings() -> None:

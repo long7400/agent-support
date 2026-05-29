@@ -5,12 +5,14 @@ from typing import Any
 
 from redis.exceptions import RedisError
 
-from core.api.schemas.messages import StreamMessageEnvelope
+from core.api.schemas.messages import OutboundMessageEnvelope, StreamMessageEnvelope
 from core.config import Settings, get_settings
 from core.services.errors import ServiceError
 from core.streams.backpressure import RedisBackpressureChecker
 
 logger = logging.getLogger(__name__)
+
+RedisStreamPayload = StreamMessageEnvelope | OutboundMessageEnvelope
 
 
 class RedisStreamPublisher:
@@ -32,7 +34,7 @@ class RedisStreamPublisher:
         self,
         *,
         stream: str,
-        envelope: StreamMessageEnvelope,
+        envelope: RedisStreamPayload,
         group: str | None = None,
     ) -> str:
         self.backpressure.ensure_can_publish(stream=stream, group=group)

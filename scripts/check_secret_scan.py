@@ -1,6 +1,13 @@
 import json
 import subprocess
 import sys
+from pathlib import PurePath
+
+GENERATED_DIR_NAMES = {"node_modules"}
+
+
+def should_scan(path: str) -> bool:
+    return not any(part in GENERATED_DIR_NAMES for part in PurePath(path).parts)
 
 
 def main() -> int:
@@ -9,7 +16,7 @@ def main() -> int:
         check=True,
         capture_output=True,
     )
-    files = [path for path in listed.stdout.decode().split("\0") if path]
+    files = [path for path in listed.stdout.decode().split("\0") if path and should_scan(path)]
 
     if not files:
         print("No files to scan.")

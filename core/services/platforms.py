@@ -1,3 +1,4 @@
+import re
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -6,9 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from core.api.schemas.messages import Platform
 from core.persistence.repositories.tenant_platforms import TenantPlatformRepository
 from core.services.errors import ServiceError
-from core.services.redaction import secret_like_paths
+from core.services.redaction import is_secret_like_key, is_secret_like_string, secret_like_paths
 
 JsonObject = dict[str, object]
+ALLOWED_NON_SECRET_METADATA_KEYS = {"adapter_credential_id"}
+PUBLIC_METADATA_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 
 class TenantPlatformRepositoryProtocol(Protocol):
@@ -48,7 +51,11 @@ class TenantPlatformService:
         external_channel_id: str,
         config: JsonObject,
     ) -> Any:
-        secret_paths = secret_like_paths(config)
+        secret_paths = [
+            path
+            for path in secret_like_paths(config)
+            if not _allowed_non_secret_metadata_path(config, path)
+        ]
         if secret_paths:
             raise ServiceError(
                 code="TENANT_PLATFORM_CONFIG_REJECTED",
@@ -89,3 +96,15 @@ class TenantPlatformService:
                 status_code=404,
             )
         return row
+
+
+def _allowed_non_secret_metadata_path(config: JsonObject, path: str) -> bool:
+    if path not in ALLOWED_NON_SECRET_METADATA_KEYS:
+        return False
+    value = config.get(path)
+    return (
+        isinstance(value, str)
+        and PUBLIC_METADATA_VALUE_PATTERN.fullmatch(value) is not None
+        and not is_secret_like_key(value)
+        and not is_secret_like_string(value)
+    )

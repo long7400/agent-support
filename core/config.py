@@ -8,6 +8,8 @@ from core.constants import STREAM_TEXT_PREVIEW_MAX_CHARS
 
 LOCAL_ADMIN_TOKEN = "local-admin-token"
 LOCAL_INTERNAL_TOKEN = "local-internal-token"
+LOCAL_ADAPTER_TOKEN = "local-adapter-token"
+LOCAL_ADAPTER_CREDENTIAL_ID = "local-telegram-sandbox"
 LOCAL_ADMIN_DATABASE_URL = (
     "postgresql+psycopg://"
     + "agent_support_admin"
@@ -32,6 +34,11 @@ class Settings(BaseSettings):
     environment: str = "local"
     admin_token: str = LOCAL_ADMIN_TOKEN
     internal_token: str = LOCAL_INTERNAL_TOKEN
+    adapter_token: str = LOCAL_ADAPTER_TOKEN
+    adapter_credential_id: str = LOCAL_ADAPTER_CREDENTIAL_ID
+    adapter_platform: str = "telegram"
+    adapter_external_workspace_id: str = "sandbox-workspace"
+    adapter_external_channel_id: str = "*"
     database_admin_url: str = Field(default=LOCAL_ADMIN_DATABASE_URL)
     database_url: str = Field(default=LOCAL_APP_DATABASE_URL)
     redis_url: str = "redis://localhost:6379/0"
@@ -42,6 +49,10 @@ class Settings(BaseSettings):
     redis_pending_reject_limit: int = Field(default=10_000, gt=0)
     redis_pending_idle_reclaim_seconds: int = Field(default=300, gt=0)
     redis_ingress_consumer_group: str = Field(default="message-stub", min_length=1)
+    redis_reclaim_idle_millis: int = Field(default=300_000, ge=0)
+    redis_reclaim_retry_limit: int = Field(default=3, gt=0)
+    redis_reclaim_batch_size: int = Field(default=10, gt=0)
+    redis_dlq_max_length: int = Field(default=10_000, gt=0)
     redis_text_preview_max_chars: int = Field(
         default=STREAM_TEXT_PREVIEW_MAX_CHARS,
         gt=0,
@@ -64,6 +75,11 @@ class Settings(BaseSettings):
             and self.internal_token == LOCAL_INTERNAL_TOKEN
         ):
             raise ValueError("AGENT_SUPPORT_INTERNAL_TOKEN must be changed outside local env")
+        if (
+            self.environment.casefold() in {"production", "prod", "staging"}
+            and self.adapter_token == LOCAL_ADAPTER_TOKEN
+        ):
+            raise ValueError("AGENT_SUPPORT_ADAPTER_TOKEN must be changed outside local env")
         if self.redis_memory_warn_ratio >= self.redis_memory_reject_ratio:
             raise ValueError(
                 "AGENT_SUPPORT_REDIS_MEMORY_WARN_RATIO must be lower than "
