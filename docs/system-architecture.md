@@ -134,6 +134,33 @@ class AgentState(TypedDict):
 | `moderation_actions` | Proposed and executed moderation outcomes. |
 | `audit_log` | Admin and system changes. |
 
+Current Phase 1 foundation tables:
+
+- `tenants`: tenant identity, status, display name, validated config JSON, config version.
+- `tenant_plugins`: tenant-owned enabled/disabled plugin rows, protected by RLS.
+- `audit_log`: platform-admin audit trail for tenant config and plugin mutations.
+- `chat_events`: tenant-owned message event baseline from the foundation slice.
+
+Current admin API boundary:
+
+```text
+POST   /admin/tenants
+GET    /admin/tenants
+GET    /admin/tenants/{tenant_id}
+PATCH  /admin/tenants/{tenant_id}
+PUT    /admin/tenants/{tenant_id}/plugins/{plugin_name}
+DELETE /admin/tenants/{tenant_id}/plugins/{plugin_name}
+GET    /admin/audit-log
+```
+
+Admin routes currently use `X-Admin-Token` as a local placeholder only. They also
+preserve or generate `X-Trace-Id` and write mutation audit rows.
+Tenant plugin config requests reject credential-like keys before persistence in
+this phase, including normalized separator, case, Unicode, and common credential
+header-value variants. Tenant plugin responses still redact secret-like config
+keys and credential-like string values before returning JSON as a
+defense-in-depth guard for legacy or manually seeded data.
+
 ### PostgreSQL RLS
 
 Every tenant-owned table must include `tenant_id`.
@@ -150,6 +177,9 @@ Application code must set tenant context inside a transaction:
 ```sql
 SELECT set_config('app.current_tenant', :tenant_id, true);
 ```
+
+Platform-admin routes use a privileged admin session behind admin auth and audit.
+Tenant-runtime paths use the app role plus `app.current_tenant`.
 
 ## Vector Layout
 
@@ -194,6 +224,10 @@ Runtime contract:
 
 - Adapters cannot read tenant secrets.
 - MCP tools receive scoped credentials, not platform-wide credentials.
+- Tenant plugin config must not store raw credentials; future credential material
+  belongs in a secrets manager or encrypted credential table with scoped handles.
+- `AGENT_SUPPORT_ADMIN_TOKEN=local-admin-token` is accepted only for local
+  environment defaults; staging/production settings must override it.
 - Tool output is untrusted until normalized and policy-checked.
 - All destructive moderation actions require policy config and audit logging.
 - Prompt templates are tenant data and must be validated before execution.

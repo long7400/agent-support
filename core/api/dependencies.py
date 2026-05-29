@@ -1,0 +1,47 @@
+from collections.abc import Iterator
+from secrets import compare_digest
+from uuid import UUID, uuid4
+
+from fastapi import Header, Request, status
+from sqlalchemy.orm import Session
+
+from core.api.errors import ApiError
+from core.config import get_settings
+from core.persistence.db import admin_session_scope
+from core.services.principals import AdminPrincipal
+
+
+def parse_trace_id(raw_trace_id: str | None) -> UUID:
+    if raw_trace_id is None or raw_trace_id == "":
+        return uuid4()
+    try:
+        return UUID(raw_trace_id)
+    except ValueError:
+        return uuid4()
+
+
+def get_trace_id(request: Request) -> UUID:
+    trace_id = getattr(request.state, "trace_id", None)
+    if isinstance(trace_id, UUID):
+        return trace_id
+    trace_id = parse_trace_id(None)
+    request.state.trace_id = trace_id
+    return trace_id
+
+
+def require_admin_principal(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> AdminPrincipal:
+    expected_token = get_settings().admin_token
+    if x_admin_token is None or not compare_digest(x_admin_token, expected_token):
+        raise ApiError(
+            code="UNAUTHORIZED",
+            message="Missing or invalid admin token",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    return AdminPrincipal(actor_type="admin_token", actor_id="local-admin")
+
+
+def get_admin_session() -> Iterator[Session]:
+    with admin_session_scope() as session:
+        yield session

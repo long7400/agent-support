@@ -19,7 +19,7 @@
 | M1-002 | Model `tenant_plugins`. | Plugins can be enabled/disabled per tenant. |
 | M1-003 | Implement RLS session helper. | Tests prove RLS blocks cross-tenant reads. |
 | M1-004 | Add audit log. | Config mutations create audit rows. |
-| M1-005 | Add admin API auth placeholder. | Unauthorized requests are rejected. |
+| M1-005 | Add admin API auth placeholder. | Unauthorized requests are rejected and trace id is returned. |
 | M1-006 | Add repository layer conventions. | SQLAlchemy repositories keep DB access out of routes and domain logic. |
 
 ## Milestone 2: Messaging
