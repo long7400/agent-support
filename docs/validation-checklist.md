@@ -22,6 +22,12 @@
 - [ ] Plugin route parameters validate before hitting database constraints.
 - [ ] Route handlers call services/repositories instead of raw SQL.
 - [ ] New external calls have timeout.
+- [ ] Redis Streams publishers use bounded `XADD MAXLEN ~`.
+- [ ] Redis chat transport uses `noeviction` and explicit local memory limits.
+- [ ] Redis backpressure tests cover warn-only and reject thresholds.
+- [ ] Worker ACK happens only after downstream side effects succeed.
+- [ ] Internal ingest writes tenant-owned rows through app role plus tenant context.
+- [ ] Redis publish failures leave a durable pending outbox row for retry.
 - [ ] New tool calls are audited.
 - [ ] Docs updated for changed contracts.
 
@@ -32,6 +38,7 @@ uv run ruff check .
 uv run mypy .
 uv run pytest tests/unit
 docker compose -f infra/docker-compose.yml up -d --wait
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli CONFIG GET maxmemory maxmemory-policy maxmemory-clients
 uv run alembic upgrade head
 AGENT_SUPPORT_RUN_INTEGRATION=1 uv run pytest tests/integration
 uv run python scripts/check_secret_scan.py
@@ -53,6 +60,9 @@ uv run alembic upgrade head
 - [ ] Tenant A cannot access tenant B source documents.
 - [ ] Redis envelopes include tenant id and trace id.
 - [ ] Background jobs re-load and verify tenant context before doing work.
+- [ ] Normalized adapter requests cannot supply trusted `tenant_id`.
+- [ ] Duplicate platform messages reuse one `chat_event_id`.
+- [ ] Unknown platform mappings fail closed before persistence.
 
 ## Agent Safety
 

@@ -26,11 +26,17 @@
 
 | ID | Task | Acceptance |
 | --- | --- | --- |
-| M2-001 | Define message envelope schema. | Schema validates Telegram and Discord events. |
-| M2-002 | Implement Redis ingress consumer. | Consumer reads and acknowledges message. |
-| M2-003 | Implement egress publisher. | Adapter can read response event. |
-| M2-004 | Implement Telegram adapter. | Sandbox message reaches API. |
-| M2-005 | Add idempotency. | Duplicate platform message is ignored. |
+| M2A-001 | Define normalized and trusted message envelopes. | Request payload rejects trusted `tenant_id`; stream payload includes trusted `tenant_id` and `chat_event_id`. |
+| M2A-002 | Model tenant platform mappings. | Active platform workspace/channel resolves to exactly one tenant and is RLS protected. |
+| M2A-003 | Add chat event idempotency. | Duplicate inbound platform message reuses the same `chat_event_id`. |
+| M2A-004 | Implement bounded Redis Stream helpers. | Publisher uses `XADD MAXLEN ~`; consumer group read and ACK work locally. |
+| M2A-005 | Add Redis backpressure checks. | Memory, stream length, and pending thresholds raise `QUEUE_BACKPRESSURE`. |
+| M2A-006 | Add internal ingest API. | `/internal/messages/ingest` writes DB first, publishes only new events, and returns `accepted`. |
+| M2A-007 | Add worker stub. | Stub verifies tenant is active, publishes outbound, and ACKs only after publish success. |
+| M2B-001 | Implement Telegram adapter. | Telegram sandbox message reaches `/internal/messages/ingest`. |
+| M2B-002 | Add adapter auth hardening. | Adapter trust model is separate from admin auth and documented. |
+| M2B-003 | Add DLQ/reclaim path. | Old pending entries can be reclaimed or moved to DLQ without data loss. |
+| M2B-004 | Implement Discord adapter. | Discord sandbox event uses the same normalized envelope. |
 
 ## Milestone 3: Agent Runtime
 

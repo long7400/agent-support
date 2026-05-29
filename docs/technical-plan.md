@@ -55,18 +55,37 @@ Exit criteria:
 
 Goal: adapters can send normalized events to the control plane and receive responses.
 
-Deliverables:
+Phase 2A messaging backbone deliverables now implemented locally:
 
-- Telegram adapter first.
-- Redis Streams ingress/egress.
-- Internal message envelope schema.
-- Consumer group processing.
-- Idempotency by platform message id.
+- Internal normalized message envelope schema.
+- Tenant platform mapping table for Telegram/Discord workspace/channel identity.
+- PostgreSQL-backed `chat_events` idempotency by platform message id.
+- Tenant-owned `stream_outbox` retry state for Redis publish attempts.
+- Redis Streams ingress/outbound helpers with bounded `XADD MAXLEN ~`.
+- Backpressure checks for memory, stream length, and pending entries.
+- Internal `/internal/messages/ingest` API.
+- Deterministic `agent-support-worker-stub` local loop with active-tenant
+  verification before processing.
+
+Deferred to Phase 2B:
+
+- Real Telegram adapter runtime and sandbox bot.
+- Discord adapter runtime.
+- DLQ/reclaim workflow for repeatedly pending messages.
+- Production auth model for adapter-to-control-plane traffic.
+
+Deferred beyond Phase 2:
+
+- LangGraph, RAG, MCP, and full agent response generation.
+- Celery for chat ingress/egress. Redis Streams remain the chat transport; Celery
+  may be reconsidered later for coarse background jobs.
 
 Exit criteria:
 
-- Local Telegram sandbox can echo through the full bus.
+- Local normalized event can echo through DB, Redis ingress, worker stub, and
+  Redis outbound.
 - Duplicate events do not create duplicate responses.
+- Disabled tenants are rejected before worker publish/ACK.
 - Trace id ties adapter logs to API logs.
 
 ## Phase 3: Agent Engine

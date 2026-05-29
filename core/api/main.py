@@ -13,7 +13,7 @@ from core.api.errors import (
     service_error_handler,
     validation_error_handler,
 )
-from core.api.routes import admin_audit, admin_plugins, admin_tenants, health
+from core.api.routes import admin_audit, admin_plugins, admin_tenants, health, internal_messages
 from core.config import get_settings
 from core.services.errors import ServiceError
 
@@ -33,13 +33,15 @@ def create_app() -> FastAPI:
         trace_id = parse_trace_id(request.headers.get("X-Trace-Id"))
         request.state.trace_id = trace_id
         response = await call_next(request)
-        response.headers["X-Trace-Id"] = str(trace_id)
+        response_trace_id = getattr(request.state, "trace_id", trace_id)
+        response.headers["X-Trace-Id"] = str(response_trace_id)
         return response
 
     app.include_router(health.router)
     app.include_router(admin_tenants.router)
     app.include_router(admin_plugins.router)
     app.include_router(admin_audit.router)
+    app.include_router(internal_messages.router)
     return app
 
 
