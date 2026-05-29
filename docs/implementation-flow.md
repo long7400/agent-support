@@ -52,6 +52,7 @@ Useful probes:
 curl http://127.0.0.1:8000/healthz
 curl http://127.0.0.1:6333/healthz
 docker exec infra-redis-1 redis-cli ping
+docker exec infra-redis-1 redis-cli CONFIG GET maxmemory maxmemory-policy maxmemory-clients
 uv run alembic current
 ```
 
@@ -73,6 +74,69 @@ uv run alembic upgrade head
 7. Docs.
 
 Keep dependency direction clean: API calls service/domain, domain stays framework-free, persistence owns DB access.
+
+## Phase 2A Messaging Backbone Runbook
+
+Start local services and API:
+
+```text
+docker compose -f infra/docker-compose.yml up -d --wait
+uv run alembic upgrade head
+uv run uvicorn core.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Seed a tenant platform mapping with an admin DB session or an admin setup helper,
+then send a normalized event:
+
+```text
+curl -X POST http://127.0.0.1:8000/internal/messages/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Token: local-internal-token" \
+  -d '{
+    "trace_id": "00000000-0000-4000-8000-000000000001",
+    "platform": "telegram",
+    "external_workspace_id": "sandbox-workspace",
+    "channel_id": "sandbox-channel",
+    "user_id": "sandbox-user",
+    "message_id": "sandbox-message-1",
+    "text": "hello"
+  }'
+```
+
+Stream names are:
+
+```text
+{environment}:{tenant_id}:{ingress|outbound|dlq}:{telegram|discord}
+```
+
+Run one deterministic worker batch:
+
+```text
+uv run agent-support-worker-stub \
+  --ingress-stream local:<tenant_id>:ingress:telegram \
+  --outbound-stream local:<tenant_id>:outbound:telegram
+```
+
+The default consumer group comes from
+`AGENT_SUPPORT_REDIS_INGRESS_CONSUMER_GROUP` and is `message-stub` locally.
+
+Inspect Redis:
+
+```text
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XLEN local:<tenant_id>:ingress:telegram
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XPENDING local:<tenant_id>:ingress:telegram message-stub
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli XRANGE local:<tenant_id>:outbound:telegram - +
+```
+
+Expected failure semantics:
+
+- Duplicate normalized event returns the same `chat_event_id` and does not enqueue
+  duplicate ingress work.
+- Unknown platform mapping returns `TENANT_PLATFORM_NOT_FOUND`.
+- Redis backpressure returns `503 QUEUE_BACKPRESSURE`; the chat event and
+  pending `stream_outbox` row remain durable for retry.
+- Worker outbound publish failure leaves ingress pending because ACK happens only
+  after publish success.
 
 ## Testing Flow
 

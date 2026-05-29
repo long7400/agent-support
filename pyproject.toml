@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.123.0",
     "psycopg[binary]>=3.3.2",
     "pydantic-settings>=2.12.0",
+    "redis>=8.0.0",
     "sqlalchemy>=2.0.45",
     "uvicorn[standard]>=0.38.0",
 ]
@@ -23,6 +24,7 @@ dev = [
 
 [project.scripts]
 agent-support-api = "core.api.main:run"
+agent-support-worker-stub = "core.workers.message_stub:run"
 
 [build-system]
 requires = ["hatchling"]

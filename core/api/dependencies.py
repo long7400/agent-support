@@ -42,6 +42,18 @@ def require_admin_principal(
     return AdminPrincipal(actor_type="admin_token", actor_id="local-admin")
 
 
+def require_internal_token(
+    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
+) -> None:
+    expected_token = get_settings().internal_token
+    if x_internal_token is None or not compare_digest(x_internal_token, expected_token):
+        raise ApiError(
+            code="UNAUTHORIZED",
+            message="Missing or invalid internal token",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+
 def get_admin_session() -> Iterator[Session]:
     with admin_session_scope() as session:
         yield session

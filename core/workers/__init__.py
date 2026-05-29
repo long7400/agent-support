@@ -1,1 +1,1 @@
-"""Background worker package."""
+"""Worker entrypoints for local operational slices."""

@@ -82,20 +82,87 @@ flowchart TD
 | TurboVec | Optional local compressed read-path accelerator. | Feature-flagged; rebuildable from durable data. |
 | CocoIndex workers | Incremental source sync and indexing. | Jobs are idempotent. |
 
-## Message Envelope
+## Current Phase 2A Messaging Backbone
+
+Phase 2A establishes the internal messaging backbone without real Telegram or
+Discord bot runtime, LangGraph, RAG, or MCP execution.
+
+```text
+tenant_platforms
+  -> POST /internal/messages/ingest
+  -> chat_events
+  -> stream_outbox
+  -> Redis ingress stream
+  -> agent-support-worker-stub
+  -> Redis outbound stream
+```
+
+Current stream names use this shape:
+
+```text
+{environment}:{tenant_id}:{ingress|outbound|dlq}:{telegram|discord}
+```
+
+Redis is transport only. PostgreSQL owns tenant mapping, durable message event
+metadata, idempotency, and the stream outbox retry state.
+
+Failure semantics:
+
+- Duplicate platform message: returns the existing `chat_event_id` and does not
+  republish ingress work.
+- Unknown platform mapping: returns `TENANT_PLATFORM_NOT_FOUND`.
+- Redis backpressure or publish failure: returns `503 QUEUE_BACKPRESSURE` after
+  committing the durable chat event and pending outbox row for retry. The outbox
+  row stores the public failure message for retry inspection.
+- Inactive tenant at worker time: raises `TENANT_INACTIVE`; ingress message
+  remains pending because DLQ/reclaim is a later phase.
+- Worker publish failure before ACK: ingress message remains pending.
+- Worker batch processing isolates per-entry service failures, so one pending
+  failed entry does not block later entries from being published and ACKed.
+- Repeated worker failure: future DLQ/reclaim path; not implemented in Phase 2A.
+
+Redis guardrails:
+
+- `XADD MAXLEN ~ AGENT_SUPPORT_REDIS_STREAM_MAX_LENGTH`.
+- Local Redis uses `maxmemory 256mb`, `maxmemory-policy noeviction`, and
+  `maxmemory-clients 5%`.
+- App-level backpressure checks memory ratio, stream length, and pending count
+  for `AGENT_SUPPORT_REDIS_INGRESS_CONSUMER_GROUP` before publishing.
+
+Celery is deferred for the chat path. If it is introduced later, it should be
+for coarse background jobs, not the bounded ingress/egress stream loop.
+
+## Message Envelopes
+
+Normalized adapter events sent to `/internal/messages/ingest` do not carry a
+trusted tenant id:
+
+```json
+{
+  "trace_id": "uuid",
+  "platform": "telegram",
+  "external_workspace_id": "string",
+  "channel_id": "string",
+  "thread_id": "string|null",
+  "user_id": "string",
+  "message_id": "string",
+  "text": "string"
+}
+```
+
+Trusted stream envelopes are produced only after tenant resolution:
 
 ```json
 {
   "trace_id": "uuid",
   "tenant_id": "uuid",
+  "chat_event_id": "uuid",
+  "direction": "inbound",
   "platform": "telegram",
   "channel_id": "string",
-  "thread_id": "string|null",
   "user_id": "string",
   "message_id": "string",
-  "text": "string",
-  "attachments": [],
-  "received_at": "2026-05-28T00:00:00Z"
+  "text_preview": "bounded string"
 }
 ```
 
@@ -138,8 +205,13 @@ Current Phase 1 foundation tables:
 
 - `tenants`: tenant identity, status, display name, validated config JSON, config version.
 - `tenant_plugins`: tenant-owned enabled/disabled plugin rows, protected by RLS.
+- `tenant_platforms`: active platform workspace/channel mapping used to resolve
+  trusted tenant id from normalized adapter events.
 - `audit_log`: platform-admin audit trail for tenant config and plugin mutations.
-- `chat_events`: tenant-owned message event baseline from the foundation slice.
+- `chat_events`: tenant-owned message events with PostgreSQL-backed inbound
+  idempotency on tenant, platform, channel, platform message id, and direction.
+- `stream_outbox`: tenant-owned pending/published Redis stream work. Route code
+  writes it with the app DB role and tenant context before publishing to Redis.
 
 Current admin API boundary:
 
@@ -151,6 +223,7 @@ PATCH  /admin/tenants/{tenant_id}
 PUT    /admin/tenants/{tenant_id}/plugins/{plugin_name}
 DELETE /admin/tenants/{tenant_id}/plugins/{plugin_name}
 GET    /admin/audit-log
+POST   /internal/messages/ingest
 ```
 
 Admin routes currently use `X-Admin-Token` as a local placeholder only. They also
