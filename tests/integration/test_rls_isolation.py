@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import get_settings
@@ -128,3 +129,93 @@ def test_rls_fails_closed_without_tenant_context(
 
     assert chat_rows == []
     assert tenant_rows == []
+
+
+def test_tenant_plugins_rls_blocks_cross_tenant_reads_and_writes(
+    admin_session_factory: sessionmaker[Session],
+    app_session_factory: sessionmaker[Session],
+) -> None:
+    tenant_a = uuid4()
+    tenant_b = uuid4()
+    plugin_a = uuid4()
+    plugin_b = uuid4()
+
+    with admin_session_factory() as session, session.begin():
+        session.execute(
+            text(
+                """
+                INSERT INTO tenants (id, slug, status)
+                VALUES (:tenant_a, :slug_a, 'active'), (:tenant_b, :slug_b, 'active')
+                """
+            ),
+            {
+                "tenant_a": tenant_a,
+                "slug_a": f"tenant-plugin-a-{tenant_a}",
+                "tenant_b": tenant_b,
+                "slug_b": f"tenant-plugin-b-{tenant_b}",
+            },
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO tenant_plugins (id, tenant_id, plugin_name, enabled, config)
+                VALUES
+                    (:plugin_a, :tenant_a, 'rag.search', true, '{}'),
+                    (:plugin_b, :tenant_b, 'web.search', true, '{}')
+                """
+            ),
+            {
+                "plugin_a": plugin_a,
+                "tenant_a": tenant_a,
+                "plugin_b": plugin_b,
+                "tenant_b": tenant_b,
+            },
+        )
+
+    with tenant_session(tenant_a, app_session_factory) as session:
+        rows = [
+            (row[0], row[1])
+            for row in session.execute(
+                text("SELECT tenant_id, plugin_name FROM tenant_plugins ORDER BY plugin_name")
+            ).all()
+        ]
+
+    assert rows == [(tenant_a, "rag.search")]
+
+    with pytest.raises(DBAPIError), tenant_session(tenant_a, app_session_factory) as session:
+        session.execute(
+            text(
+                """
+                    INSERT INTO tenant_plugins (id, tenant_id, plugin_name, enabled, config)
+                    VALUES (:plugin_id, :tenant_b, 'crypto.price', true, '{}')
+                    """
+            ),
+            {"plugin_id": uuid4(), "tenant_b": tenant_b},
+        )
+
+
+def test_tenant_plugins_rls_fails_closed_without_tenant_context(
+    admin_session_factory: sessionmaker[Session],
+    app_session_factory: sessionmaker[Session],
+) -> None:
+    tenant_id = uuid4()
+
+    with admin_session_factory() as session, session.begin():
+        session.execute(
+            text("INSERT INTO tenants (id, slug, status) VALUES (:id, :slug, 'active')"),
+            {"id": tenant_id, "slug": f"tenant-plugin-missing-context-{tenant_id}"},
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO tenant_plugins (id, tenant_id, plugin_name, enabled, config)
+                VALUES (:plugin_id, :tenant_id, 'rag.search', true, '{}')
+                """
+            ),
+            {"plugin_id": uuid4(), "tenant_id": tenant_id},
+        )
+
+    with app_session_factory() as session:
+        rows = [row[0] for row in session.execute(text("SELECT id FROM tenant_plugins")).all()]
+
+    assert rows == []

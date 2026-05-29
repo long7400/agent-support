@@ -33,15 +33,23 @@ Deliverables:
 - SQLAlchemy 2.x models.
 - Pydantic request/response/config schemas kept separate from ORM models.
 - Alembic migrations.
-- RLS middleware/session helper.
-- CRUD for tenants, knowledge sources, plugins.
+- RLS session helper.
+- Admin auth placeholder, trace id, and consistent API error envelope.
+- CRUD for tenants and tenant plugins.
 - Audit log for config changes.
+
+Deferred from this phase:
+
+- `tenant_platforms` and chat adapter connection runtime.
+- Knowledge source CRUD and Qdrant/RAG provisioning.
+- OAuth/OIDC/JWT admin users.
 
 Exit criteria:
 
 - Tenant A cannot query tenant B rows in tests.
 - API returns consistent error shapes.
 - Migrations are repeatable from empty DB.
+- Config mutations create audit rows.
 
 ## Phase 2: Chat Ingress and Egress
 

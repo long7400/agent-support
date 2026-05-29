@@ -12,6 +12,15 @@
 - [ ] New tenant-owned tables have RLS policy.
 - [ ] New tenant-owned tables use `FORCE ROW LEVEL SECURITY`.
 - [ ] RLS tests use app role, not owner/superuser.
+- [ ] Admin routes reject missing or invalid `X-Admin-Token`.
+- [ ] Staging/production settings reject the local default admin token.
+- [ ] API errors include `error.code`, `error.message`, `error.trace_id`, and `error.details`.
+- [ ] Config mutations write audit rows with trace id.
+- [ ] Plugin config requests reject credential-like keys, separator/case/Unicode
+      variants, and common credential header-value smuggling before persistence.
+- [ ] Plugin config responses redact secret-like keys and credential-like values.
+- [ ] Plugin route parameters validate before hitting database constraints.
+- [ ] Route handlers call services/repositories instead of raw SQL.
 - [ ] New external calls have timeout.
 - [ ] New tool calls are audited.
 - [ ] Docs updated for changed contracts.
