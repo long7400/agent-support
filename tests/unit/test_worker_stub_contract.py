@@ -20,5 +20,7 @@ def test_outbound_stub_keeps_text_preview_within_stream_contract() -> None:
     outbound = _outbound_stub(inbound)
 
     assert outbound.direction == MessageDirection.OUTBOUND
-    assert len(outbound.text_preview) == 500
-    assert outbound.text_preview.startswith("stub:")
+    assert outbound.reply_to_message_id == inbound.message_id
+    assert outbound.inbound_chat_event_id == inbound.chat_event_id
+    assert len(outbound.text) == 500
+    assert outbound.text.startswith("stub:")

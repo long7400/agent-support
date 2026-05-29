@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from core.api.schemas.messages import MessageDirection, StreamMessageEnvelope
+from core.api.schemas.messages import OutboundMessageEnvelope, StreamMessageEnvelope
 from core.config import Settings, get_settings
 from core.constants import STREAM_TEXT_PREVIEW_MAX_CHARS
 from core.persistence.db import create_session_factory
@@ -22,7 +22,7 @@ class StreamPublisherProtocol(Protocol):
         self,
         *,
         stream: str,
-        envelope: StreamMessageEnvelope,
+        envelope: StreamMessageEnvelope | OutboundMessageEnvelope,
         group: str | None = None,
     ) -> str: ...
 
@@ -94,17 +94,16 @@ class MessageStubWorker:
         return processed
 
 
-def _outbound_stub(inbound: StreamMessageEnvelope) -> StreamMessageEnvelope:
-    return StreamMessageEnvelope(
+def _outbound_stub(inbound: StreamMessageEnvelope) -> OutboundMessageEnvelope:
+    return OutboundMessageEnvelope(
         trace_id=inbound.trace_id,
         tenant_id=inbound.tenant_id,
-        chat_event_id=inbound.chat_event_id,
-        direction=MessageDirection.OUTBOUND,
         platform=inbound.platform,
         channel_id=inbound.channel_id,
         user_id=inbound.user_id,
-        message_id=inbound.message_id,
-        text_preview=f"stub:{inbound.text_preview}"[:STREAM_TEXT_PREVIEW_MAX_CHARS],
+        reply_to_message_id=inbound.message_id,
+        inbound_chat_event_id=inbound.chat_event_id,
+        text=f"stub:{inbound.text_preview}"[:STREAM_TEXT_PREVIEW_MAX_CHARS],
     )
 
 

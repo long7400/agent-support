@@ -49,6 +49,7 @@ def register_platform(
     *,
     workspace_id: str,
     channel_id: str,
+    adapter_credential_id: str | None = None,
 ) -> object:
     tenant_id = uuid4()
     platform_id = uuid4()
@@ -68,7 +69,7 @@ def register_platform(
                 VALUES
                     (
                         :platform_id, :tenant_id, 'telegram', :workspace_id,
-                        :channel_id, 'active', '{}'
+                        :channel_id, 'active', CAST(:config AS jsonb)
                     )
                 """
             ),
@@ -77,6 +78,12 @@ def register_platform(
                 "tenant_id": tenant_id,
                 "workspace_id": workspace_id,
                 "channel_id": channel_id,
+                "config": json.dumps(
+                    {
+                        "adapter_credential_id": adapter_credential_id
+                        or get_settings().adapter_credential_id
+                    }
+                ),
             },
         )
     return tenant_id
@@ -98,7 +105,7 @@ def test_internal_ingest_accepts_and_publishes_once(
     client: TestClient,
     admin_session_factory: sessionmaker[Session],
 ) -> None:
-    workspace_id = f"workspace-{uuid4()}"
+    workspace_id = get_settings().adapter_external_workspace_id
     channel_id = f"channel-{uuid4()}"
     tenant_id = register_platform(
         admin_session_factory,
@@ -116,7 +123,7 @@ def test_internal_ingest_accepts_and_publishes_once(
 
     response = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=ingest_payload(
             workspace_id=workspace_id,
             channel_id=channel_id,
@@ -134,7 +141,7 @@ def test_internal_ingest_duplicate_does_not_republish(
     client: TestClient,
     admin_session_factory: sessionmaker[Session],
 ) -> None:
-    workspace_id = f"workspace-{uuid4()}"
+    workspace_id = get_settings().adapter_external_workspace_id
     channel_id = f"channel-{uuid4()}"
     tenant_id = register_platform(
         admin_session_factory,
@@ -157,12 +164,12 @@ def test_internal_ingest_duplicate_does_not_republish(
 
     first = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=payload,
     )
     second = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=payload,
     )
 
@@ -190,9 +197,9 @@ def test_internal_ingest_duplicate_does_not_republish(
 def test_internal_ingest_rejects_unknown_platform_mapping(client: TestClient) -> None:
     response = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=ingest_payload(
-            workspace_id=f"missing-{uuid4()}",
+            workspace_id=get_settings().adapter_external_workspace_id,
             channel_id=f"missing-{uuid4()}",
             message_id="message-a",
         ),
@@ -202,11 +209,100 @@ def test_internal_ingest_rejects_unknown_platform_mapping(client: TestClient) ->
     assert response.json()["error"]["code"] == "TENANT_PLATFORM_NOT_FOUND"
 
 
-def test_internal_ingest_backpressure_keeps_pending_outbox_for_retry(
+def test_internal_ingest_rejects_mapping_outside_adapter_scope(
     client: TestClient,
     admin_session_factory: sessionmaker[Session],
 ) -> None:
     workspace_id = f"workspace-{uuid4()}"
+    channel_id = f"channel-{uuid4()}"
+    tenant_id = register_platform(
+        admin_session_factory,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+    )
+
+    response = client.post(
+        "/internal/messages/ingest",
+        headers={"X-Adapter-Token": get_settings().adapter_token},
+        json=ingest_payload(
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            message_id="message-forbidden",
+        ),
+    )
+
+    with admin_session_factory() as session:
+        row_count = session.execute(
+            text(
+                """
+                SELECT count(*)
+                FROM chat_events
+                WHERE tenant_id = :tenant_id AND message_id = 'message-forbidden'
+                """
+            ),
+            {"tenant_id": tenant_id},
+        ).scalar_one()
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ADAPTER_SCOPE_FORBIDDEN"
+    assert row_count == 0
+
+
+def test_internal_ingest_rejects_mapping_not_bound_to_adapter_credential(
+    client: TestClient,
+    admin_session_factory: sessionmaker[Session],
+) -> None:
+    workspace_id = get_settings().adapter_external_workspace_id
+    channel_id = f"channel-{uuid4()}"
+    tenant_id = register_platform(
+        admin_session_factory,
+        workspace_id=workspace_id,
+        channel_id=channel_id,
+        adapter_credential_id="different-adapter-credential",
+    )
+    redis = create_redis_client(get_settings())
+    ingress_stream = stream_name(
+        environment=get_settings().environment,
+        tenant_scope=str(tenant_id),
+        direction=StreamDirection.INGRESS,
+        platform=Platform.TELEGRAM,
+    )
+    redis.delete(ingress_stream)
+
+    response = client.post(
+        "/internal/messages/ingest",
+        headers={"X-Adapter-Token": get_settings().adapter_token},
+        json=ingest_payload(
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            message_id="message-credential-forbidden",
+        ),
+    )
+
+    with admin_session_factory() as session:
+        row_count = session.execute(
+            text(
+                """
+                SELECT count(*)
+                FROM chat_events
+                WHERE tenant_id = :tenant_id
+                  AND message_id = 'message-credential-forbidden'
+                """
+            ),
+            {"tenant_id": tenant_id},
+        ).scalar_one()
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ADAPTER_SCOPE_FORBIDDEN"
+    assert row_count == 0
+    assert redis.xlen(ingress_stream) == 0
+
+
+def test_internal_ingest_backpressure_keeps_pending_outbox_for_retry(
+    client: TestClient,
+    admin_session_factory: sessionmaker[Session],
+) -> None:
+    workspace_id = get_settings().adapter_external_workspace_id
     channel_id = f"channel-{uuid4()}"
     tenant_id = register_platform(
         admin_session_factory,
@@ -240,7 +336,7 @@ def test_internal_ingest_backpressure_keeps_pending_outbox_for_retry(
 
     response = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=payload,
     )
 
@@ -279,7 +375,7 @@ def test_internal_ingest_backpressure_keeps_pending_outbox_for_retry(
     cast(Any, client.app).dependency_overrides.clear()
     retry = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=payload,
     )
 
@@ -296,7 +392,7 @@ def test_internal_ingest_publisher_receives_ingress_consumer_group(
     client: TestClient,
     admin_session_factory: sessionmaker[Session],
 ) -> None:
-    workspace_id = f"workspace-{uuid4()}"
+    workspace_id = get_settings().adapter_external_workspace_id
     channel_id = f"channel-{uuid4()}"
     register_platform(
         admin_session_factory,
@@ -318,7 +414,7 @@ def test_internal_ingest_publisher_receives_ingress_consumer_group(
 
     response = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=ingest_payload(
             workspace_id=workspace_id,
             channel_id=channel_id,
@@ -340,7 +436,7 @@ def test_internal_ingest_rejects_request_supplied_tenant_id(client: TestClient) 
 
     response = client.post(
         "/internal/messages/ingest",
-        headers={"X-Internal-Token": get_settings().internal_token},
+        headers={"X-Adapter-Token": get_settings().adapter_token},
         json=payload,
     )
 

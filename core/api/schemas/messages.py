@@ -49,13 +49,13 @@ class OutboundMessageEnvelope(BaseModel):
 
     trace_id: UUID
     tenant_id: UUID
-    direction: MessageDirection = MessageDirection.OUTBOUND
+    direction: Literal[MessageDirection.OUTBOUND] = MessageDirection.OUTBOUND
     platform: Platform
     channel_id: str = Field(min_length=1, max_length=255)
     user_id: str = Field(min_length=1, max_length=255)
     reply_to_message_id: str = Field(min_length=1, max_length=255)
     inbound_chat_event_id: UUID
-    text: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=STREAM_TEXT_PREVIEW_MAX_CHARS)
 
 
 class IngestAcceptedResponse(BaseModel):

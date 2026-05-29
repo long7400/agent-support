@@ -33,10 +33,10 @@
 | M2A-005 | Add Redis backpressure checks. | Memory, stream length, and pending thresholds raise `QUEUE_BACKPRESSURE`. |
 | M2A-006 | Add internal ingest API. | `/internal/messages/ingest` writes DB first, publishes only new events, and returns `accepted`. |
 | M2A-007 | Add worker stub. | Stub verifies tenant is active, publishes outbound, and ACKs only after publish success. |
-| M2B-001 | Implement Telegram adapter. | Telegram sandbox message reaches `/internal/messages/ingest`. |
-| M2B-002 | Add adapter auth hardening. | Adapter trust model is separate from admin auth and documented. |
-| M2B-003 | Add DLQ/reclaim path. | Old pending entries can be reclaimed or moved to DLQ without data loss. |
-| M2B-004 | Implement Discord adapter. | Discord sandbox event uses the same normalized envelope. |
+| M2B-001 | Implement Telegram adapter. | Implemented for local long-polling sandbox; Telegram text messages normalize and post to `/internal/messages/ingest`. |
+| M2B-002 | Add adapter auth hardening. | Implemented locally with `X-Adapter-Token`; separate from admin/internal auth and documented. |
+| M2B-003 | Add DLQ/reclaim path. | Implemented for Redis ingress pending entries; retry-limit messages copy to DLQ before ACK. |
+| M2B-004 | Implement Discord adapter. | Deferred beyond Phase 2B; Discord will reuse the normalized envelope later. |
 
 ## Milestone 3: Agent Runtime
 

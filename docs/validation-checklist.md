@@ -14,6 +14,10 @@
 - [ ] RLS tests use app role, not owner/superuser.
 - [ ] Admin routes reject missing or invalid `X-Admin-Token`.
 - [ ] Staging/production settings reject the local default admin token.
+- [ ] Adapter routes reject missing or invalid `X-Adapter-Token`.
+- [ ] Staging/production settings reject the local default adapter token.
+- [ ] Adapter credentials are scoped to platform/workspace/channel and a matching
+      `tenant_platforms.config.adapter_credential_id`.
 - [ ] API errors include `error.code`, `error.message`, `error.trace_id`, and `error.details`.
 - [ ] Config mutations write audit rows with trace id.
 - [ ] Plugin config requests reject credential-like keys, separator/case/Unicode
@@ -28,6 +32,12 @@
 - [ ] Worker ACK happens only after downstream side effects succeed.
 - [ ] Internal ingest writes tenant-owned rows through app role plus tenant context.
 - [ ] Redis publish failures leave a durable pending outbox row for retry.
+- [ ] Redis reclaim moves stale pending entries only after tenant status is verified.
+- [ ] Retry-limit entries are copied to DLQ before original stream ACK.
+- [ ] DLQ payloads preserve trace id, tenant id, platform, original stream id,
+      retry count, and redacted failure summary.
+- [ ] Telegram adapter outbound send ACKs only after `sendMessage` succeeds and
+      skips duplicate sends on retry when a delivery receipt already exists.
 - [ ] New tool calls are audited.
 - [ ] Docs updated for changed contracts.
 
@@ -37,6 +47,10 @@ Current local commands:
 uv run ruff check .
 uv run mypy .
 uv run pytest tests/unit
+npm install --prefix adapters/telegram-bot --package-lock=false
+npm --prefix adapters/telegram-bot run lint
+npm --prefix adapters/telegram-bot run typecheck
+npm --prefix adapters/telegram-bot test
 docker compose -f infra/docker-compose.yml up -d --wait
 docker compose -f infra/docker-compose.yml exec -T redis redis-cli CONFIG GET maxmemory maxmemory-policy maxmemory-clients
 uv run alembic upgrade head
@@ -61,6 +75,8 @@ uv run alembic upgrade head
 - [ ] Redis envelopes include tenant id and trace id.
 - [ ] Background jobs re-load and verify tenant context before doing work.
 - [ ] Normalized adapter requests cannot supply trusted `tenant_id`.
+- [ ] Telegram adapter requests supply external workspace/channel ids only;
+      tenant id is resolved by trusted control-plane mapping.
 - [ ] Duplicate platform messages reuse one `chat_event_id`.
 - [ ] Unknown platform mappings fail closed before persistence.
 

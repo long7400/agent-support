@@ -91,7 +91,7 @@ def test_worker_stub_emits_outbound_and_acks_ingress(
             consumer="worker-a",
         )
         consumer.create_group(stream=outbound_stream, group=outbound_group)
-        outbound = consumer.read_group(
+        outbound = consumer.read_outbound_group(
             stream=outbound_stream,
             group=outbound_group,
             consumer="assertion",
@@ -107,7 +107,7 @@ def test_worker_stub_emits_outbound_and_acks_ingress(
     assert len(outbound) == 1
     assert outbound[0].payload.direction == MessageDirection.OUTBOUND
     assert outbound[0].payload.trace_id == envelope.trace_id
-    assert outbound[0].payload.chat_event_id == envelope.chat_event_id
+    assert outbound[0].payload.inbound_chat_event_id == envelope.chat_event_id
 
 
 def test_worker_stub_leaves_ingress_pending_when_outbound_publish_fails(
@@ -226,7 +226,7 @@ def test_worker_stub_continues_batch_after_inactive_tenant(
         pending = redis.xpending(ingress_stream, group)["pending"]
         consumer = RedisStreamConsumer(redis=redis, settings=settings)
         consumer.create_group(stream=outbound_stream, group=outbound_group)
-        outbound = consumer.read_group(
+        outbound = consumer.read_outbound_group(
             stream=outbound_stream,
             group=outbound_group,
             consumer="assertion",
@@ -240,4 +240,4 @@ def test_worker_stub_continues_batch_after_inactive_tenant(
     assert pending == 1
     assert len(outbound) == 1
     assert outbound[0].payload.tenant_id == active_tenant_id
-    assert outbound[0].payload.message_id == "message-active"
+    assert outbound[0].payload.reply_to_message_id == "message-active"

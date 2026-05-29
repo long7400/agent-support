@@ -3,10 +3,11 @@ from typing import Annotated, Protocol
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from core.api.dependencies import get_admin_session, require_internal_token
+from core.api.dependencies import get_admin_session, require_adapter_principal
 from core.api.schemas.messages import (
     InboundMessageEnvelope,
     IngestAcceptedResponse,
+    OutboundMessageEnvelope,
     StreamMessageEnvelope,
 )
 from core.config import Settings, get_settings
@@ -18,6 +19,7 @@ from core.persistence.rls import tenant_session
 from core.services.errors import ServiceError
 from core.services.messages import TrustedMessageIngestService, tenant_id_from_platform_mapping
 from core.services.platforms import TenantPlatformService
+from core.services.principals import AdapterPrincipal
 from core.streams.names import StreamDirection, stream_name
 from core.streams.publisher import RedisStreamPublisher
 from core.streams.redis_client import create_redis_client
@@ -25,7 +27,7 @@ from core.streams.redis_client import create_redis_client
 router = APIRouter(prefix="/internal/messages", tags=["internal-messages"])
 
 AdminSessionDep = Annotated[Session, Depends(get_admin_session)]
-InternalTokenDep = Annotated[None, Depends(require_internal_token)]
+AdapterPrincipalDep = Annotated[AdapterPrincipal, Depends(require_adapter_principal)]
 
 
 class StreamPublisherProtocol(Protocol):
@@ -33,16 +35,16 @@ class StreamPublisherProtocol(Protocol):
         self,
         *,
         stream: str,
-        envelope: StreamMessageEnvelope,
+        envelope: StreamMessageEnvelope | OutboundMessageEnvelope,
         group: str | None = None,
     ) -> str: ...
 
 
 def get_tenant_platform_service(
-    token: InternalTokenDep,
+    principal: AdapterPrincipalDep,
     session: AdminSessionDep,
 ) -> TenantPlatformService:
-    del token
+    del principal
     return TenantPlatformService.from_session(session)
 
 
@@ -59,15 +61,18 @@ StreamPublisherDep = Annotated[StreamPublisherProtocol, Depends(get_stream_publi
 def ingest_message(
     http_request: Request,
     request: InboundMessageEnvelope,
+    principal: AdapterPrincipalDep,
     platform_service: TenantPlatformServiceDep,
     publisher: StreamPublisherDep,
 ) -> IngestAcceptedResponse:
     settings = get_settings()
+    _authorize_adapter_scope(principal, request)
     platform_mapping = platform_service.resolve_active(
         platform=request.platform,
         external_workspace_id=request.external_workspace_id,
         external_channel_id=request.channel_id,
     )
+    _authorize_platform_mapping(principal, platform_mapping)
     tenant_id = tenant_id_from_platform_mapping(platform_mapping)
     with tenant_session(tenant_id) as session:
         result = TrustedMessageIngestService.from_session(session).ingest_inbound_message(
@@ -113,3 +118,32 @@ def _ingress_stream(envelope: StreamMessageEnvelope, settings: Settings) -> str:
         direction=StreamDirection.INGRESS,
         platform=envelope.platform,
     )
+
+
+def _authorize_adapter_scope(
+    principal: AdapterPrincipal,
+    request: InboundMessageEnvelope,
+) -> None:
+    if principal.platform != "*" and principal.platform != request.platform.value:
+        raise _adapter_scope_error()
+    if (
+        principal.external_workspace_id != "*"
+        and principal.external_workspace_id != request.external_workspace_id
+    ):
+        raise _adapter_scope_error()
+    if principal.external_channel_id != "*" and principal.external_channel_id != request.channel_id:
+        raise _adapter_scope_error()
+
+
+def _adapter_scope_error() -> ServiceError:
+    return ServiceError(
+        code="ADAPTER_SCOPE_FORBIDDEN",
+        message="Adapter credential is not authorized for this platform mapping",
+        status_code=403,
+    )
+
+
+def _authorize_platform_mapping(principal: AdapterPrincipal, platform_mapping: object) -> None:
+    config = getattr(platform_mapping, "config", None)
+    if not isinstance(config, dict) or config.get("adapter_credential_id") != principal.actor_id:
+        raise _adapter_scope_error()
