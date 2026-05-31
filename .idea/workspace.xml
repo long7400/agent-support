@@ -7,139 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="55568acf-4613-443c-ac92-3d62d93b7ad8" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.repomixignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/AGENTS.md" beforeDir="false" afterPath="$PROJECT_DIR$/AGENTS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/discord-bot/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/package.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/client.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/config.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/main.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/normalize.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/outbound.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/src/types.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/tests/client.test.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/tests/normalize.test.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/tests/outbound.test.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/adapters/telegram-bot/tsconfig.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic.ini" beforeDir="false" afterPath="$PROJECT_DIR$/alembic.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/local-env.template" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/dependencies.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/errors.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/admin_audit.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/admin_plugins.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/admin_tenants.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/health.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/routes/internal_messages.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/audit.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/common.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/messages.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/plugins.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/api/schemas/tenants.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/constants.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/domain/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/db.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/env.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/script.py.mako" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/versions/0001_foundation_rls.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/versions/0002_tenant_control_plane.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/versions/0003_tenant_platforms.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/versions/0004_chat_event_idempotency.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/migrations/versions/0005_stream_outbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/audit_log.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/base.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/chat_event.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/stream_outbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/tenant.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/tenant_platform.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/models/tenant_plugin.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/audit_log.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/chat_events.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/stream_outbox.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/tenant_platforms.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/tenant_plugins.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/repositories/tenants.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/persistence/rls.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/audit.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/errors.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/messages.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/platforms.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/principals.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/redaction.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/services/tenants.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/backpressure.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/consumer.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/dlq.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/names.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/publisher.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/streams/redis_client.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/workers/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/workers/message_reclaim.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/workers/message_stub.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/coding-rules.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/decisions/0001-production-stack-baseline.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/decisions/0002-turbovec-read-path-accelerator.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/implementation-flow.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260528-1945-infra-fastapi-rls-foundation.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260528-2258-tenant-control-plane-plan.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260528-2330-tenant-control-plane-foundation.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260529-0010-control-plane-review-fixes.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260529-phase-2a-messaging-backbone.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/journals/260529-phase-2b-telegram-adapter-delivery-hardening.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/production-spec.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260528-2251-tenant-control-plane-foundation.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260528-platform-stack-research.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260529-phase-2a-messaging-backbone.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260529-phase-2b-telegram-adapter-delivery-hardening.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260529-redaction-library-research.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/research/260529-redis-memory-celery-evaluation.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/system-architecture.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/task-breakdown.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/technical-plan.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/validation-checklist.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/docker-compose.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mcp_servers/.gitkeep" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/check_secret_scan.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/spec.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_admin_control_plane.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_internal_message_ingest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_message_ingest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_redis_reclaim_dlq.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_redis_streams.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_rls_isolation.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/integration/test_worker_stub.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_api_boundary.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_health.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_message_contracts.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_message_ingest_service.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_platform_services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_service_errors.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_stream_backpressure.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_stream_reclaim_dlq.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_tenant_services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/test_worker_stub_contract.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
-    </list>
+    <list default="true" id="55568acf-4613-443c-ac92-3d62d93b7ad8" name="Changes" comment="chore: remove deprecated migrations, docs, and placeholders" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -152,6 +20,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "long7400"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/long7400/agent-support.git",
+    "accountId": "5387d8e4-74f3-42e2-8dbb-69d58c5b1e86"
+  }
+}]]></component>
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
@@ -250,6 +130,11 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration default="true" type="DjangoTestsConfigurationType">
       <module name="langgraph-fastapi-template" />
@@ -462,11 +347,24 @@
       <workItem from="1780078139146" duration="598000" />
       <workItem from="1780146135645" duration="1520000" />
       <workItem from="1780148351058" duration="2787000" />
-      <workItem from="1780160078276" duration="15216000" />
+      <workItem from="1780160078276" duration="16627000" />
     </task>
+    <task id="LOCAL-00001" summary="chore: remove deprecated migrations, docs, and placeholders">
+      <option name="closed" value="true" />
+      <created>1780234739396</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1780234739396</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="chore: remove deprecated migrations, docs, and placeholders" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: remove deprecated migrations, docs, and placeholders" />
   </component>
 </project>
