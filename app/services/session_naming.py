@@ -42,11 +42,7 @@ async def _claim_session(session_id: str, placeholder: str) -> bool:
     concurrent caller receives rowcount == 1.
     """
     async with AsyncSessionLocal() as db:
-        stmt = (
-            update(ChatSession)
-            .where(ChatSession.id == session_id, ChatSession.name == "")
-            .values(name=placeholder)
-        )
+        stmt = update(ChatSession).where(ChatSession.id == session_id, ChatSession.name == "").values(name=placeholder)
         result = await db.execute(stmt)
         await db.commit()
         return (result.rowcount or 0) == 1

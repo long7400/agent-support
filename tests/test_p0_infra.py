@@ -98,6 +98,7 @@ def test_production_rejects_disabled_langfuse_tracing(monkeypatch: pytest.Monkey
 
 def test_langfuse_disabled_does_not_auth_check(monkeypatch: pytest.MonkeyPatch) -> None:
     """Disabled Langfuse tracing does not call the network auth check."""
+
     class FailIfConstructed:
         def __init__(self, *args: object, **kwargs: object) -> None:
             raise AssertionError("langfuse client should not be constructed")

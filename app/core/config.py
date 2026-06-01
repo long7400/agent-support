@@ -134,9 +134,7 @@ class Settings:
         # Application Settings
         self.PROJECT_NAME = os.getenv("PROJECT_NAME", "Agent Support")
         self.VERSION = os.getenv("VERSION", "0.1.0")
-        self.DESCRIPTION = os.getenv(
-            "DESCRIPTION", "Tenant-isolated FastAPI and LangGraph community support backend"
-        )
+        self.DESCRIPTION = os.getenv("DESCRIPTION", "Tenant-isolated FastAPI and LangGraph community support backend")
         self.API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
         self.DEBUG = parse_bool_from_env("DEBUG", False)
 
