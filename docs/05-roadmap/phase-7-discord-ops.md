@@ -39,6 +39,12 @@ Reuse: normalized inbound contract, trusted tenant resolution, agent graph, outb
 
 Lift VPS → managed khi: >20 tenants / enterprise SLA HA / Postgres >50GB / VPS >70% capacity. Partition chat_events; consider managed Postgres (Neon/Supabase), worker scale (Swarm/Fly.io/Cloud Run).
 
+## Resource And Ops Follow-Up
+
+- Review every `*_CPU_LIMIT`, `*_MEM_LIMIT`, Prometheus retention, and Docker log rotation value against 7-day pilot metrics before production launch.
+- If Langfuse self-host remains enabled, size ClickHouse from real trace volume or move tracing to Langfuse Cloud/managed ClickHouse before raising app concurrency.
+- Add alerts for container memory >70%, Prometheus retention truncation, queue age, DB connection saturation, Qdrant latency, and Langfuse ingestion lag.
+
 ## References
 
 - [ADR-008 Deployment Target](../06-decisions/adr-008-deployment-target.md)

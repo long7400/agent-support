@@ -33,6 +33,7 @@ langfuse     (+ its own postgres + clickhouse)
 caddy/traefik (reverse proxy)
 ```
 - GCP Cloud KMS: service account JSON mount, ngoài git.
+- Small-host guardrails: Docker log rotation, service CPU/memory caps, Prometheus retention, Valkey maxmemory policy, Postgres small-pool tuning, Qdrant telemetry disabled.
 
 ### KMSProvider Skeleton (ADR-006)
 ```python
@@ -50,20 +51,23 @@ class KMSProvider(Protocol):
 
 ## Exit Criteria
 
-- [ ] Fresh clone runs API + migrations (SQLAlchemy 2.0).
-- [ ] `make docker-compose-up ENV=development` brings up api/worker/postgres/qdrant/redis/langfuse.
-- [ ] Secret scan clean (detect-secrets).
-- [ ] Baseline tests pass.
-- [ ] `make typecheck` (pyright) clean với new ORM.
-- [ ] KMSProvider skeleton + production pre-flight rejects local.
-- [ ] Risky defaults (web search, auto memory) documented + controlled.
-- [ ] docs/ in repo.
+- [x] Fresh clone runs API + migrations (SQLAlchemy 2.0).
+- [x] `make docker-compose-up ENV=development` brings up api/worker/postgres/qdrant/valkey/metrics.
+- [x] `make stack-up-langfuse ENV=development` brings up optional self-host Langfuse profile.
+- [x] Secret scan clean (detect-secrets).
+- [x] Baseline tests pass.
+- [x] `make typecheck` (pyright) clean với new ORM.
+- [x] KMSProvider skeleton + production pre-flight rejects local.
+- [x] Risky defaults (web search, auto memory) documented + controlled.
+- [x] Infra resource guardrails documented + encoded in Compose/env defaults.
+- [x] docs/ in repo.
 
 ## Validation
 
 ```bash
 make install
 make docker-compose-up ENV=development
+make stack-up-langfuse ENV=development   # optional if local resources allow ClickHouse
 make migrate
 pytest
 make check          # lint + typecheck
@@ -77,6 +81,7 @@ detect-secrets scan --baseline .secrets.baseline
 | ORM migration breaks template auth | Migrate incrementally; keep auth tests green. |
 | Langfuse + Clickhouse RAM trên CX22 (4GB) | Start Langfuse Cloud free tier nếu VPS tight; self-host khi upgrade (ADR-007 exit plan). |
 | GCP KMS setup friction | LocalKMSProvider cho dev; CloudKMSProvider chỉ cần production. |
+| Compose caps quá thấp cho pilot data thật | Raise từng `*_MEM_LIMIT`/`*_CPU_LIMIT` bằng metrics, không bỏ caps hoàn toàn. |
 
 ## References
 

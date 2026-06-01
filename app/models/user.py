@@ -1,24 +1,29 @@
-"""This file contains the user model for the application."""
+"""User persistence model."""
+
+from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING,
-    List,
-    Optional,
 )
 
 import bcrypt
-from sqlmodel import (
-    Field,
-    Relationship,
+from sqlalchemy import String
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
 )
 
-from app.models.base import BaseModel
+from app.models.base import (
+    Base,
+    TimestampMixin,
+)
 
 if TYPE_CHECKING:
     from app.models.session import Session
 
 
-class User(BaseModel, table=True):
+class User(TimestampMixin, Base):
     """User model for storing user accounts.
 
     Attributes:
@@ -30,11 +35,16 @@ class User(BaseModel, table=True):
         sessions: Relationship to user's chat sessions
     """
 
-    id: int = Field(default=None, primary_key=True)
-    email: str = Field(unique=True, index=True)
-    hashed_password: str
-    username: Optional[str] = Field(default=None, index=False)
-    sessions: List["Session"] = Relationship(back_populates="user")
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    username: Mapped[str | None] = mapped_column(String, nullable=True)
+    sessions: Mapped[list[Session]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def verify_password(self, password: str) -> bool:
         """Verify if the provided password matches the hash."""
@@ -45,7 +55,3 @@ class User(BaseModel, table=True):
         """Hash a password using bcrypt."""
         salt = bcrypt.gensalt()
         return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
-
-
-# Avoid circular imports
-from app.models.session import Session  # noqa: E402

@@ -22,7 +22,8 @@ cp .env.example .env.development
 # Optional: LANGFUSE_* (or LANGFUSE_TRACING_ENABLED=false)
 
 make install                              # deps + pre-commit
-make docker-compose-up ENV=development    # api + worker + postgres + qdrant + redis + langfuse
+make docker-compose-up ENV=development    # api + worker + postgres + qdrant + valkey + metrics
+make stack-up-langfuse ENV=development    # optional: add self-host Langfuse profile
 make migrate                              # Alembic migrations (+ RLS policies)
 ```
 
@@ -36,8 +37,8 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs).
 | worker | — | Outbox consumer (graph + delivery) |
 | postgres | 5432 | Source of truth, RLS enforced |
 | qdrant | 6333 | Vector backend (ADR-001) |
-| redis | 6379 | Cache + rate limit only |
-| langfuse | 3000 | Trace backend self-host (ADR-007) |
+| valkey | 6379 | Cache + rate limit only |
+| langfuse | 3001 | Trace backend self-host (optional `langfuse` compose profile, ADR-007) |
 
 > Dev: bind internal services tới localhost. Production single VPS: chỉ `api` (qua caddy/traefik) public.
 
@@ -52,6 +53,8 @@ make check        # lint + typecheck
 make migrate      # alembic upgrade
 make migration MSG="..."   # new migration
 make migrate-downgrade     # rollback
+make stack-up-langfuse ENV=development    # optional Langfuse self-host profile
+make stack-up-edge ENV=production         # optional Traefik edge profile
 make eval-quick   # LLM evals default
 detect-secrets scan --baseline .secrets.baseline
 ```

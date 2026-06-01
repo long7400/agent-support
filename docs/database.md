@@ -53,7 +53,7 @@ make migrate              # applies all migrations to the database
 ### Creating a migration after model changes
 
 ```bash
-# 1. Edit your SQLModel model (app/models/)
+# 1. Edit your SQLAlchemy model (app/models/)
 # 2. Generate the migration
 make migration MSG="add phone number to user"
 
@@ -73,7 +73,7 @@ Alembic reads DB credentials from your `.env` file (via `app/core/config.py`). M
 
 ### How autogenerate works
 
-`env.py` imports all SQLModel models so their metadata is registered, then calls `alembic revision --autogenerate`. Alembic diffs the current DB schema against the models and generates the upgrade/downgrade functions.
+`env.py` imports all SQLAlchemy models so `Base.metadata` is registered, then calls `alembic revision --autogenerate`. Alembic diffs the current DB schema against the models and generates the upgrade/downgrade functions.
 
 External tables (LangGraph checkpointer, mem0, pgvector) are excluded via `include_object` in `alembic/env.py` so Alembic never touches them.
 
@@ -93,4 +93,4 @@ pgvector must be enabled before running migrations:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-With Docker (`make docker-up`), this is handled automatically by the `db` service. For external databases (e.g. Supabase), enable the extension via the dashboard or SQL editor.
+With Docker (`make docker-up`), this is handled automatically by the `postgres` service. For external databases (e.g. Supabase), enable the extension via the dashboard or SQL editor.

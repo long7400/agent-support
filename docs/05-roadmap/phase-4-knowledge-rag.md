@@ -22,6 +22,12 @@ upload .md/.zip -> raw blob -> source_version(parsing)
 
 Detail: [vector-and-rag-storage.md](../02-persistence/vector-and-rag-storage.md).
 
+## Resource Guardrails
+
+- Add env-configurable ingest batch size, embedding concurrency, Qdrant upsert batch size, and max active source syncs per tenant.
+- Keep Qdrant container caps from Phase 0 unless benchmark data proves they are too low; raise `QDRANT_*_LIMIT` before changing retrieval behavior.
+- Prefer payload/index settings that reduce memory pressure for cold metadata; tenant filter correctness remains the release gate.
+
 ## Exit Criteria
 
 - [ ] Tenant A cannot retrieve Tenant B chunks (app-layer filter gate).

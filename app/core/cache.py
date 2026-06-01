@@ -134,7 +134,10 @@ class ValkeyCacheService:
         if not self._client:
             return None
         try:
-            return await self._client.get(key)
+            value = await self._client.get(key)
+            if isinstance(value, bytes):
+                return value.decode("utf-8")
+            return value
         except Exception as e:
             logger.warning("cache_get_failed", key=key, error=str(e))
             return None
@@ -188,7 +191,7 @@ def _create_cache_service() -> InMemoryCacheService | ValkeyCacheService:
     if settings.VALKEY_HOST and not REDIS_AVAILABLE:
         logger.warning(
             "redis_client_not_installed",
-            hint="install with: uv add redis --optional cache",
+            hint="install project runtime dependencies",
         )
 
     return InMemoryCacheService(default_ttl=ttl)

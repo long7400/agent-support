@@ -39,6 +39,7 @@ loop:
 - LISTEN/NOTIFY wake-up + polling fallback.
 - Stale `processing` reclaim (heartbeat + worker_id).
 - Retry/DLQ (retries, last_error, dead_letter).
+- Backpressure settings required before real load: claim batch size, max concurrent deliveries, per-platform send timeout, retry backoff ceiling, and in-flight cap per tenant. Defaults must fit the `WORKER_*` Compose CPU/memory caps.
 
 ### Delivery Sender
 ```text
@@ -83,6 +84,7 @@ pytest tests/integration    # 1 Telegram sandbox event -> trusted event -> deliv
 | Worker crash mid-processing | Stale reclaim + (Phase 3) checkpoint resume. |
 | Telegram-shape leaks into contract | Discord mock test gate. |
 | secret_token bypass | 401 + audit; reject before tenant resolution. |
+| Worker overwhelms DB/platform API | Bound claim batch + delivery concurrency; alert on queue age before increasing container caps. |
 
 ## References
 

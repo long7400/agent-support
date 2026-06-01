@@ -8,6 +8,7 @@ configuration value parsing.
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -74,6 +75,14 @@ ENV_FILE = load_env_file()
 
 
 # Parse list values from environment variables
+def parse_bool_from_env(env_key: str, default: bool = False) -> bool:
+    """Parse a boolean value from an environment variable."""
+    value = os.getenv(env_key)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "t", "yes", "y", "on")
+
+
 def parse_list_from_env(env_key, default=None):
     """Parse a comma-separated list from an environment variable."""
     value = os.getenv(env_key)
@@ -123,41 +132,56 @@ class Settings:
         self.ENVIRONMENT = get_environment()
 
         # Application Settings
-        self.PROJECT_NAME = os.getenv("PROJECT_NAME", "FastAPI LangGraph Template")
-        self.VERSION = os.getenv("VERSION", "1.0.0")
+        self.PROJECT_NAME = os.getenv("PROJECT_NAME", "Agent Support")
+        self.VERSION = os.getenv("VERSION", "0.1.0")
         self.DESCRIPTION = os.getenv(
-            "DESCRIPTION", "A production-ready FastAPI template with LangGraph and Langfuse integration"
+            "DESCRIPTION", "Tenant-isolated FastAPI and LangGraph community support backend"
         )
         self.API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
-        self.DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "t", "yes")
+        self.DEBUG = parse_bool_from_env("DEBUG", False)
 
         # CORS Settings
         self.ALLOWED_ORIGINS = parse_list_from_env("ALLOWED_ORIGINS", ["*"])
 
         # Langfuse Configuration
-        self.LANGFUSE_TRACING_ENABLED = os.getenv("LANGFUSE_TRACING_ENABLED", "true").lower() in (
-            "true",
-            "1",
-            "t",
-            "yes",
-        )
+        self.LANGFUSE_TRACING_ENABLED = parse_bool_from_env("LANGFUSE_TRACING_ENABLED", True)
         self.LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
         self.LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
         self.LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
         # LangGraph Configuration
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+        self.REQUIRE_OPENAI_API_KEY = parse_bool_from_env(
+            "REQUIRE_OPENAI_API_KEY", self.ENVIRONMENT == Environment.PRODUCTION
+        )
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gpt-5-mini")
-        self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
+        self.SESSION_NAMING_ENABLED = parse_bool_from_env("SESSION_NAMING_ENABLED", True)
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
         self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
+        self.WEB_SEARCH_ENABLED = parse_bool_from_env("WEB_SEARCH_ENABLED", False)
 
         # Long term memory Configuration
+        self.LONG_TERM_MEMORY_ENABLED = parse_bool_from_env("LONG_TERM_MEMORY_ENABLED", False)
+        self.LONG_TERM_MEMORY_WRITE_ENABLED = parse_bool_from_env("LONG_TERM_MEMORY_WRITE_ENABLED", False)
         self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
         self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
+
+        # Tenant platform infrastructure
+        self.QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
+
+        # Worker Configuration
+        self.WORKER_ROLE = os.getenv("WORKER_ROLE", "runtime")
+        self.WORKER_POLL_INTERVAL_SECONDS = float(os.getenv("WORKER_POLL_INTERVAL_SECONDS", "2.0"))
+        self.WORKER_SHUTDOWN_GRACE_SECONDS = float(os.getenv("WORKER_SHUTDOWN_GRACE_SECONDS", "10.0"))
+
+        # Secret Management Configuration
+        self.KMS_PROVIDER = os.getenv("KMS_PROVIDER", "local").lower()
+        self.LOCAL_KMS_SECRET = os.getenv("LOCAL_KMS_SECRET", "")
+        self.GCP_KMS_KEY_NAME = os.getenv("GCP_KMS_KEY_NAME", "")
+
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -175,9 +199,9 @@ class Settings:
         # Postgres Configuration
         self.POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
         self.POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
-        self.POSTGRES_DB = os.getenv("POSTGRES_DB", "food_order_db")
-        self.POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-        self.POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+        self.POSTGRES_DB = os.getenv("POSTGRES_DB", "agent_support")
+        self.POSTGRES_USER = os.getenv("POSTGRES_USER", "agent_support")
+        self.POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
         self.POSTGRES_POOL_SIZE = int(os.getenv("POSTGRES_POOL_SIZE", "20"))
         self.POSTGRES_MAX_OVERFLOW = int(os.getenv("POSTGRES_MAX_OVERFLOW", "10"))
         self.CHECKPOINT_TABLES = ["checkpoint_blobs", "checkpoint_writes", "checkpoints"]
@@ -257,6 +281,20 @@ class Settings:
             # Only override if environment variable wasn't explicitly set
             if env_var_name not in os.environ:
                 setattr(self, key, value)
+
+    def insecure_defaults(self) -> dict[str, Any]:
+        """Return security-sensitive defaults that should not survive production."""
+        return {
+            "jwt_secret_key": self.JWT_SECRET_KEY
+            in {"", "supersecretkeythatshouldbechangedforproduction", "replace-with-a-long-random-value"},
+            "postgres_password": self.POSTGRES_PASSWORD in {"", "postgres", "agent_support_dev_password"},
+            "local_kms_provider": self.KMS_PROVIDER == "local",
+            "wildcard_cors": "*" in self.ALLOWED_ORIGINS,
+            "openai_api_key_missing": self.REQUIRE_OPENAI_API_KEY and not self.OPENAI_API_KEY,
+            "langfuse_tracing_disabled": not self.LANGFUSE_TRACING_ENABLED,
+            "langfuse_keys_missing": self.LANGFUSE_TRACING_ENABLED
+            and (not self.LANGFUSE_PUBLIC_KEY or not self.LANGFUSE_SECRET_KEY),
+        }
 
 
 # Create settings instance

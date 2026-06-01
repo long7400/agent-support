@@ -16,8 +16,8 @@ from app.core.config import (
 )
 from app.core.logging import logger
 
-_TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.OPENAI_API_KEY)
+_MAX_COMPLETION_TOKENS = settings.MAX_TOKENS
+_API_KEY = SecretStr(settings.OPENAI_API_KEY or "missing-openai-api-key")
 
 
 class LLMRegistry:
@@ -33,7 +33,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5-mini",
                 api_key=_API_KEY,
-                model_kwargs=_TOKEN_LIMIT,
+                max_completion_tokens=_MAX_COMPLETION_TOKENS,
                 reasoning={"effort": "low"},
             ),
         },
@@ -42,7 +42,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5",
                 api_key=_API_KEY,
-                model_kwargs=_TOKEN_LIMIT,
+                max_completion_tokens=_MAX_COMPLETION_TOKENS,
                 reasoning={"effort": "medium"},
             ),
         },
@@ -51,7 +51,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5.4-nano",
                 api_key=_API_KEY,
-                model_kwargs=_TOKEN_LIMIT,
+                max_completion_tokens=_MAX_COMPLETION_TOKENS,
                 reasoning={"effort": "low"},
             ),
         },
@@ -60,7 +60,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5",
                 api_key=_API_KEY,
-                model_kwargs=_TOKEN_LIMIT,
+                max_completion_tokens=_MAX_COMPLETION_TOKENS,
                 top_p=0.95 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.8,
                 presence_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
                 frequency_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,

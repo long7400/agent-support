@@ -1,5 +1,7 @@
 """This file contains the graph utilities for the application."""
 
+from typing import cast
+
 import tiktoken
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import trim_messages as _trim_messages
@@ -113,7 +115,7 @@ def prepare_messages(messages: list[Message], system_prompt: str) -> list[Messag
         list[Message]: The prepared messages.
     """
     try:
-        trimmed_messages = _trim_messages(
+        trimmed_messages_raw = _trim_messages(
             dump_messages(messages),
             strategy="last",
             token_counter=_count_tokens_tiktoken,
@@ -122,6 +124,7 @@ def prepare_messages(messages: list[Message], system_prompt: str) -> list[Messag
             include_system=False,
             allow_partial=False,
         )
+        trimmed_messages = [Message.model_validate(message) for message in cast(list[dict], trimmed_messages_raw)]
     except ValueError as e:
         # Handle unrecognized content blocks (e.g., reasoning blocks from GPT-5)
         if "Unrecognized content block type" in str(e):

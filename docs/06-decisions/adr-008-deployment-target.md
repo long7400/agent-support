@@ -28,6 +28,7 @@ Phase 0 cần chốt deployment để: chọn cloud KMS provider (ADR-006 depend
 
 ### Follow-up actions
 - docker-compose: api, worker, postgres, qdrant, redis, langfuse, caddy/traefik (Phase 0).
+- Keep Compose resource guardrails on by default: service CPU/memory caps, Docker log rotation, Prometheus retention, cache maxmemory, and small-Postgres tuning. Raise caps from metrics; do not remove them during MVP.
 - GCP KMS service account JSON ngoài git, mount vào container.
 - Nightly off-site backup (pg_dump + Qdrant snapshot → B2/Storage Box).
 - `CloudKMSProvider` (GCP) behind KMSProvider interface (ADR-006).
@@ -48,6 +49,7 @@ Lift VPS → managed (Cloud Run/GKE/Fly.io) khi 1 trong:
 - Postgres size >50GB hoặc query p95 chạm SLO.
 - Compliance audit yêu cầu separation of duties (DB tách app).
 - VPS RAM/CPU thường xuyên >70%.
+- Any required guardrail increase would overcommit the VPS after Langfuse/ClickHouse and core services are included.
 
 ## Notes
 

@@ -7,10 +7,10 @@ stay in sync with the running app configuration.
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
-from sqlmodel import SQLModel
 
 from alembic import context
-from app.core.config import settings
+from app.core.database import build_sync_database_url
+from app.models.base import Base
 from app.models.session import Session  # noqa: F401
 from app.models.thread import Thread  # noqa: F401
 from app.models.user import User  # noqa: F401
@@ -22,15 +22,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Build the database URL from app settings
-DATABASE_URL = (
-    f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-)
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# Build the database URL from app settings.
+config.set_main_option("sqlalchemy.url", build_sync_database_url())
 
-# Point Alembic at our SQLModel metadata for autogenerate support
-target_metadata = SQLModel.metadata
+# Point Alembic at our SQLAlchemy metadata for autogenerate support.
+target_metadata = Base.metadata
 
 # Tables managed by external systems (LangGraph checkpointer, mem0, pgvector)
 # that Alembic should never touch.

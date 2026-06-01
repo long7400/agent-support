@@ -31,6 +31,7 @@ hydrate_context -> classify_intent -> risk_screen -> route
 - `agent_run_steps` (node, status, latency, redacted summary).
 - `model_calls` (provider/model/prompt version/cost/tokens) — mocked in Phase 3.
 - `graph_checkpoint_metadata` (thread_id → tenant_id, RLS-aware, ADR-002).
+- Runtime guardrail settings: max graph wall time, max node retries, max prompt-visible state size, max tool/model calls per run, and worker concurrency. These must be env-configurable before enabling non-mocked model calls.
 
 ### Mock Interfaces
 - `rag.search` stub (real Qdrant Phase 4) — graph depends on capability contract already.
@@ -67,6 +68,7 @@ Replay test: same trusted event + fixtures → same node sequence + same output.
 | Checkpointer bypasses RLS | tenant_id in checkpoint metadata + app-side filter (ADR-002). |
 | Graph state leaks raw private data to trace | Bounded + redacted state; redaction tests. |
 | Generic loop ships accidentally | Domain graph replaces template loop; routing tests. |
+| Runtime overload from long graph runs | Enforce per-run timeout/budget and keep worker concurrency below DB pool/Compose caps. |
 
 ## References
 

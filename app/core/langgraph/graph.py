@@ -294,7 +294,11 @@ class LangGraphAgent:
             list[Message]: The response from the LLM.
         """
         graph = await self._get_graph()
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [langfuse_callback_handler]
+            if settings.LANGFUSE_TRACING_ENABLED and langfuse_callback_handler is not None
+            else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,
@@ -364,7 +368,11 @@ class LangGraphAgent:
         Yields:
             str: Tokens of the LLM response.
         """
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [langfuse_callback_handler]
+            if settings.LANGFUSE_TRACING_ENABLED and langfuse_callback_handler is not None
+            else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,

@@ -1,17 +1,18 @@
-"""This file contains the thread model for the application."""
+"""LangGraph thread persistence model."""
 
-from datetime import (
-    UTC,
-    datetime,
+from sqlalchemy import String
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
 )
 
-from sqlmodel import (
-    Field,
-    SQLModel,
+from app.models.base import (
+    Base,
+    TimestampMixin,
 )
 
 
-class Thread(SQLModel, table=True):
+class Thread(TimestampMixin, Base):
     """Thread model for storing conversation threads.
 
     Attributes:
@@ -20,5 +21,6 @@ class Thread(SQLModel, table=True):
         messages: Relationship to messages in this thread
     """
 
-    id: str = Field(primary_key=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    __tablename__ = "thread"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)

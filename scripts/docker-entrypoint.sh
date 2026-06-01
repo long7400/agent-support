@@ -17,12 +17,13 @@ if [ -f ".env.${APP_ENV}" ]; then
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$line" ]] && continue
 
-        # Extract the key
-        key=$(echo "$line" | cut -d '=' -f 1)
+        # Extract the key and preserve values that contain spaces.
+        key=${line%%=*}
+        value=${line#*=}
 
         # Only set if not already set in environment
         if [[ -z "${!key}" ]]; then
-            export "$line"
+            export "$key=$value"
         else
             echo "Keeping existing value for $key"
         fi
@@ -34,12 +35,13 @@ elif [ -f ".env" ]; then
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$line" ]] && continue
 
-        # Extract the key
-        key=$(echo "$line" | cut -d '=' -f 1)
+        # Extract the key and preserve values that contain spaces.
+        key=${line%%=*}
+        value=${line#*=}
 
         # Only set if not already set in environment
         if [[ -z "${!key}" ]]; then
-            export "$line"
+            export "$key=$value"
         else
             echo "Keeping existing value for $key"
         fi
@@ -48,8 +50,11 @@ else
     echo "Warning: No .env file found. Using system environment variables."
 fi
 
-# Check required sensitive environment variables
-required_vars=("JWT_SECRET_KEY" "OPENAI_API_KEY")
+# Check required sensitive environment variables.
+required_vars=("JWT_SECRET_KEY")
+if [[ "${APP_ENV:-development}" == "production" || "${REQUIRE_OPENAI_API_KEY:-false}" == "true" ]]; then
+    required_vars+=("OPENAI_API_KEY")
+fi
 missing_vars=()
 
 for var in "${required_vars[@]}"; do
@@ -67,6 +72,15 @@ if [[ ${#missing_vars[@]} -gt 0 ]]; then
     exit 1
 fi
 
+if [[ "${APP_ENV:-development}" == "production" && "${KMS_PROVIDER:-local}" == "local" ]]; then
+    echo "ERROR: KMS_PROVIDER=local is not allowed in production."
+    exit 1
+fi
+
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+    echo "Warning: OPENAI_API_KEY is not set. Startup is allowed, but LLM calls will fail until configured."
+fi
+
 # Print final environment info
 echo -e "\nFinal environment configuration:"
 echo "Environment: ${APP_ENV:-development}"
@@ -78,6 +92,9 @@ echo "Database User: $( [[ -n ${POSTGRES_USER:-${DB_USER:-}} ]] && echo 'set' ||
 
 echo "LLM Model: ${DEFAULT_LLM_MODEL:-Not set}"
 echo "Debug Mode: ${DEBUG:-false}"
+echo "KMS Provider: ${KMS_PROVIDER:-local}"
+echo "Web Search Enabled: ${WEB_SEARCH_ENABLED:-false}"
+echo "Long Term Memory Enabled: ${LONG_TERM_MEMORY_ENABLED:-false}"
 
 # Run database migrations if necessary
 # e.g., alembic upgrade head

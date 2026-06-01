@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-DOCKER_COMPOSE ?= docker-compose
+DOCKER_COMPOSE ?= docker compose
 ENV            ?= development
 VALID_ENVS     := development staging production test
 
@@ -17,7 +17,12 @@ define load_env_file
 	$(call check_env)
 	@ENV_FILE=.env.$(ENV); \
 	if [ ! -f $$ENV_FILE ]; then \
-		echo "Environment file $$ENV_FILE not found. Please create it."; exit 1; \
+		if [ -f .env.example ]; then \
+			cp .env.example $$ENV_FILE; \
+			echo "Created $$ENV_FILE from .env.example. Review secrets before production use."; \
+		else \
+			echo "Environment file $$ENV_FILE not found and .env.example is missing."; exit 1; \
+		fi; \
 	fi
 endef
 
@@ -107,7 +112,7 @@ docker-build:
 
 docker-up:
 	$(call load_env_file)
-	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) up -d --build db app
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) up -d --build postgres valkey qdrant app
 
 docker-down:
 	$(call load_env_file)
@@ -115,22 +120,34 @@ docker-down:
 
 docker-logs:
 	$(call load_env_file)
-	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) logs -f app db
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) logs -f app postgres valkey qdrant
+
+docker-run: docker-up
 
 # ---------------------------------------------------------------------------
 # Docker — full stack (API + DB + Prometheus + Grafana)
 # ---------------------------------------------------------------------------
 stack-up:
 	$(call load_env_file)
-	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) up -d
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) up -d --build postgres valkey qdrant app worker prometheus grafana cadvisor
+
+stack-up-langfuse:
+	$(call load_env_file)
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --profile langfuse --env-file .env.$(ENV) up -d --build
+
+stack-up-edge:
+	$(call load_env_file)
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --profile edge --env-file .env.$(ENV) up -d --build
 
 stack-down:
 	$(call load_env_file)
-	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) down
+	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --profile langfuse --profile edge --env-file .env.$(ENV) down
 
 stack-logs:
 	$(call load_env_file)
 	@APP_ENV=$(ENV) $(DOCKER_COMPOSE) --env-file .env.$(ENV) logs -f
+
+docker-compose-up: stack-up
 
 # ---------------------------------------------------------------------------
 # Misc
@@ -174,11 +191,14 @@ help:
 	@echo "Docker (API + DB):"
 	@echo "  docker-build         Build Docker image"
 	@echo "  docker-up            Start API + DB containers"
+	@echo "  docker-run           Alias for docker-up"
 	@echo "  docker-down          Stop containers"
 	@echo "  docker-logs          Tail container logs"
 	@echo ""
 	@echo "Docker (full stack — includes Prometheus + Grafana):"
 	@echo "  stack-up             Start entire stack"
+	@echo "  stack-up-langfuse    Start stack with Langfuse self-host profile"
+	@echo "  stack-up-edge        Start stack with Traefik edge profile"
 	@echo "  stack-down           Stop entire stack"
 	@echo "  stack-logs           Tail all service logs"
 	@echo ""
@@ -189,6 +209,6 @@ help:
         migrate migration migrate-downgrade migrate-history \
         eval eval-quick eval-no-report \
         lint format typecheck check pre-commit pre-commit-update \
-        docker-build docker-up docker-down docker-logs \
-        stack-up stack-down stack-logs \
+        docker-build docker-up docker-down docker-logs docker-run \
+        stack-up stack-up-langfuse stack-up-edge stack-down stack-logs docker-compose-up \
         clean help

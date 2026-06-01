@@ -30,6 +30,7 @@ from app.core.middleware import (
     ProfilingMiddleware,
 )
 from app.core.observability import langfuse_init
+from app.core.runtime_guardrails import validate_runtime_guardrails
 from app.services.database import database_service
 from app.services.memory import memory_service
 
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+    validate_runtime_guardrails()
 
     # Initialize cache service (connects to Valkey if configured)
     try:
@@ -62,8 +64,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("graph_pre_warm_failed", error=str(e))
 
-    # Pre-warm mem0 AsyncMemory: initializes pgvector connection and schema check
-    # so the first search() cache miss or add() doesn't pay the ~130ms cold-init cost
+    # Pre-warm mem0 only when explicitly enabled. Community-mode memory is
+    # disabled by default until tenant retention and review policies are wired.
     try:
         await memory_service.initialize()
     except Exception as e:

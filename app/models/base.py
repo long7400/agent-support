@@ -1,10 +1,20 @@
-"""Base models and common imports for all models."""
+"""SQLAlchemy base classes for persistence models."""
 
 from datetime import datetime, UTC
-from sqlmodel import Field, SQLModel
+
+from sqlalchemy import DateTime
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class BaseModel(SQLModel):
-    """Base model with common fields."""
+class Base(DeclarativeBase):
+    """Base metadata registry for Alembic autogenerate."""
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+class TimestampMixin:
+    """Common timestamp columns for application-owned tables."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )

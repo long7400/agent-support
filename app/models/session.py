@@ -1,22 +1,31 @@
-"""This file contains the session model for the application."""
+"""Chat session persistence model."""
+
+from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING,
-    Optional,
 )
 
-from sqlmodel import (
-    Field,
-    Relationship,
+from sqlalchemy import (
+    ForeignKey,
+    String,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
 )
 
-from app.models.base import BaseModel
+from app.models.base import (
+    Base,
+    TimestampMixin,
+)
 
 if TYPE_CHECKING:
     from app.models.user import User
 
 
-class Session(BaseModel, table=True):
+class Session(TimestampMixin, Base):
     """Session model for storing chat sessions.
 
     Attributes:
@@ -29,8 +38,10 @@ class Session(BaseModel, table=True):
         user: Relationship to the session owner
     """
 
-    id: str = Field(primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
-    name: str = Field(default="")
-    username: Optional[str] = Field(default=None)
-    user: "User" = Relationship(back_populates="sessions")
+    __tablename__ = "session"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String, default="", server_default="", nullable=False)
+    username: Mapped[str | None] = mapped_column(String, nullable=True)
+    user: Mapped[User] = relationship(back_populates="sessions")

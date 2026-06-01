@@ -58,6 +58,10 @@ cp .env.example .env.development
 | `POSTGRES_PASSWORD` | `postgres` | Database password |
 | `POSTGRES_POOL_SIZE` | `20` | SQLAlchemy connection pool size |
 | `POSTGRES_MAX_OVERFLOW` | `10` | Max overflow connections above pool size |
+| `POSTGRES_MAX_CONNECTIONS` | `50` | PostgreSQL server connection cap in Docker Compose |
+| `POSTGRES_SHARED_BUFFERS` | `128MB` | PostgreSQL shared buffer setting for small-host Compose |
+| `POSTGRES_EFFECTIVE_CACHE_SIZE` | `512MB` | PostgreSQL planner cache-size hint for small-host Compose |
+| `POSTGRES_WORK_MEM` | `4MB` | Per-sort/hash memory cap for PostgreSQL queries |
 
 ---
 
@@ -83,6 +87,9 @@ When `VALKEY_HOST` is set, the app uses Valkey/Redis for memory search caching a
 | `VALKEY_PASSWORD` | `` | Password (if required) |
 | `VALKEY_MAX_CONNECTIONS` | `20` | Connection pool size |
 | `CACHE_TTL_SECONDS` | `60` | TTL for cached memory search results |
+| `VALKEY_APPENDONLY` | `no` | Docker Compose Valkey persistence mode; cache/rate-limit data is not a durable queue |
+| `VALKEY_MAXMEMORY` | `192mb` | Valkey maxmemory below the container memory cap |
+| `VALKEY_MAXMEMORY_POLICY` | `allkeys-lru` | Evict least-recently-used cache/rate-limit keys before OOM |
 
 ---
 
@@ -93,7 +100,8 @@ When `VALKEY_HOST` is set, the app uses Valkey/Redis for memory search caching a
 | `LANGFUSE_TRACING_ENABLED` | `true` | Set to `false` to disable tracing entirely |
 | `LANGFUSE_PUBLIC_KEY` | — | Langfuse project public key |
 | `LANGFUSE_SECRET_KEY` | — | Langfuse project secret key |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse host (self-hosted or cloud) |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse host for host-run processes (self-hosted or cloud) |
+| `LANGFUSE_CONTAINER_HOST` | `http://langfuse-web:3000` | Docker Compose app/worker override for the internal Langfuse service or a cloud URL |
 
 ---
 
@@ -120,6 +128,27 @@ Only active when `DEBUG=true`. Profiles every request and saves a JSON report wh
 | --- | --- | --- |
 | `PROFILING_DIR` | `/tmp/fastapi_profiles` | Directory for profile JSON files |
 | `PROFILING_THRESHOLD_SECONDS` | `2.0` | Minimum wall time to trigger saving a profile. Set to `0` to profile every request. |
+
+---
+
+## Docker resource guardrails
+
+These variables are consumed by `docker-compose.yml`, not by the FastAPI process. Defaults target local development and a cost-first single VPS. Raise them only with host metrics in hand.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `DOCKER_LOG_MAX_SIZE` | `10m` | Per-container json-file log segment size |
+| `DOCKER_LOG_MAX_FILE` | `3` | Number of retained log segments |
+| `APP_CPU_LIMIT` / `APP_MEM_LIMIT` | `1.0` / `512m` | FastAPI container cap |
+| `WORKER_CPU_LIMIT` / `WORKER_MEM_LIMIT` | `0.5` / `384m` | Runtime worker cap |
+| `QDRANT_CPU_LIMIT` / `QDRANT_MEM_LIMIT` | `1.0` / `768m` | Qdrant container cap |
+| `QDRANT_TELEMETRY_DISABLED` | `true` | Disable Qdrant telemetry in local/small-host stacks |
+| `PROMETHEUS_CPU_LIMIT` / `PROMETHEUS_MEM_LIMIT` | `0.5` / `384m` | Prometheus container cap |
+| `PROMETHEUS_RETENTION_TIME` | `7d` | Time retention for Prometheus TSDB |
+| `PROMETHEUS_RETENTION_SIZE` | `1GB` | Size retention for Prometheus TSDB |
+| `GRAFANA_CPU_LIMIT` / `GRAFANA_MEM_LIMIT` | `0.5` / `256m` | Grafana container cap |
+| `CADVISOR_CPU_LIMIT` / `CADVISOR_MEM_LIMIT` | `0.25` / `128m` | cAdvisor container cap |
+| `LANGFUSE_*_CPU_LIMIT` / `LANGFUSE_*_MEM_LIMIT` | see `.env.example` | Optional self-host Langfuse profile caps; ClickHouse remains the heaviest container |
 
 ---
 
