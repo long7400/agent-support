@@ -1,0 +1,451 @@
+x-default-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: ${DOCKER_LOG_MAX_FILE:-3}
+
+x-app-build: &app-build
+  context: .
+  args:
+    APP_ENV: ${APP_ENV:-development}
+
+x-app-env: &app-env
+  APP_ENV: ${APP_ENV:-development}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_DB: ${POSTGRES_DB:-agent_support}
+  POSTGRES_USER: ${POSTGRES_USER:-agent_support}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_support_dev_password}
+  VALKEY_HOST: valkey
+  VALKEY_PORT: 6379
+  QDRANT_URL: http://qdrant:6333
+  LANGFUSE_HOST: ${LANGFUSE_CONTAINER_HOST:-http://langfuse-web:3000}
+  KMS_PROVIDER: ${KMS_PROVIDER:-local}
+  WEB_SEARCH_ENABLED: ${WEB_SEARCH_ENABLED:-false}
+  LONG_TERM_MEMORY_ENABLED: ${LONG_TERM_MEMORY_ENABLED:-false}
+  LONG_TERM_MEMORY_WRITE_ENABLED: ${LONG_TERM_MEMORY_WRITE_ENABLED:-false}
+  REQUIRE_OPENAI_API_KEY: ${REQUIRE_OPENAI_API_KEY:-false}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    command:
+      [
+        "postgres",
+        "-c",
+        "max_connections=${POSTGRES_MAX_CONNECTIONS:-50}",
+        "-c",
+        "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}",
+        "-c",
+        "effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-512MB}",
+        "-c",
+        "work_mem=${POSTGRES_WORK_MEM:-4MB}",
+      ]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agent_support}
+      POSTGRES_USER: ${POSTGRES_USER:-agent_support}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_support_dev_password}
+    cpus: ${POSTGRES_CPU_LIMIT:-1.0}
+    mem_limit: ${POSTGRES_MEM_LIMIT:-768m}
+    logging: *default-logging
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      app:
+        aliases:
+          - db
+
+  valkey:
+    image: valkey/valkey:8.1.6-alpine
+    command:
+      [
+        "valkey-server",
+        "--appendonly",
+        "${VALKEY_APPENDONLY:-no}",
+        "--maxmemory",
+        "${VALKEY_MAXMEMORY:-192mb}",
+        "--maxmemory-policy",
+        "${VALKEY_MAXMEMORY_POLICY:-allkeys-lru}",
+      ]
+    cpus: ${VALKEY_CPU_LIMIT:-0.25}
+    mem_limit: ${VALKEY_MEM_LIMIT:-256m}
+    logging: *default-logging
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.6
+    environment:
+      QDRANT__TELEMETRY_DISABLED: ${QDRANT_TELEMETRY_DISABLED:-true}
+    cpus: ${QDRANT_CPU_LIMIT:-1.0}
+    mem_limit: ${QDRANT_MEM_LIMIT:-768m}
+    logging: *default-logging
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - app
+
+  app:
+    build: *app-build
+    cpus: ${APP_CPU_LIMIT:-1.0}
+    mem_limit: ${APP_MEM_LIMIT:-512m}
+    logging: *default-logging
+    env_file:
+      - .env.${APP_ENV:-development}
+    environment:
+      <<: *app-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: on-failure
+    networks:
+      - app
+
+  worker:
+    build: *app-build
+    command: ["/app/.venv/bin/python", "-m", "app.worker"]
+    cpus: ${WORKER_CPU_LIMIT:-0.5}
+    mem_limit: ${WORKER_MEM_LIMIT:-384m}
+    logging: *default-logging
+    env_file:
+      - .env.${APP_ENV:-development}
+    environment:
+      <<: *app-env
+      WORKER_ROLE: runtime
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    cpus: ${PROMETHEUS_CPU_LIMIT:-0.5}
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-384m}
+    logging: *default-logging
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-7d}"
+      - "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}"
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    cpus: ${GRAFANA_CPU_LIMIT:-0.5}
+    mem_limit: ${GRAFANA_MEM_LIMIT:-256m}
+    logging: *default-logging
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    cpus: ${CADVISOR_CPU_LIMIT:-0.25}
+    mem_limit: ${CADVISOR_MEM_LIMIT:-128m}
+    logging: *default-logging
+    ports:
+      - "${CADVISOR_PORT:-8080}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-postgres:
+    image: postgres:16-alpine
+    profiles: ["langfuse"]
+    command:
+      [
+        "postgres",
+        "-c",
+        "max_connections=${LANGFUSE_POSTGRES_MAX_CONNECTIONS:-50}",
+        "-c",
+        "shared_buffers=${LANGFUSE_POSTGRES_SHARED_BUFFERS:-128MB}",
+        "-c",
+        "work_mem=${LANGFUSE_POSTGRES_WORK_MEM:-4MB}",
+      ]
+    cpus: ${LANGFUSE_POSTGRES_CPU_LIMIT:-0.5}
+    mem_limit: ${LANGFUSE_POSTGRES_MEM_LIMIT:-512m}
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${LANGFUSE_POSTGRES_DB:-langfuse}
+      POSTGRES_USER: ${LANGFUSE_POSTGRES_USER:-langfuse}
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:-langfuse_dev_password}
+    volumes:
+      - langfuse-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.12-alpine
+    profiles: ["langfuse"]
+    cpus: ${LANGFUSE_CLICKHOUSE_CPU_LIMIT:-1.5}
+    mem_limit: ${LANGFUSE_CLICKHOUSE_MEM_LIMIT:-2048m}
+    logging: *default-logging
+    environment:
+      CLICKHOUSE_DB: ${LANGFUSE_CLICKHOUSE_DB:-langfuse}
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse_dev_password}
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+      - langfuse-clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-redis:
+    image: redis:7-alpine
+    profiles: ["langfuse"]
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${LANGFUSE_REDIS_PASSWORD:-langfuse_redis_dev_password}",
+        "--maxmemory",
+        "${LANGFUSE_REDIS_MAXMEMORY:-192mb}",
+        "--maxmemory-policy",
+        "${LANGFUSE_REDIS_MAXMEMORY_POLICY:-noeviction}",
+      ]
+    cpus: ${LANGFUSE_REDIS_CPU_LIMIT:-0.25}
+    mem_limit: ${LANGFUSE_REDIS_MEM_LIMIT:-256m}
+    logging: *default-logging
+    volumes:
+      - langfuse-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${LANGFUSE_REDIS_PASSWORD:-langfuse_redis_dev_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    profiles: ["langfuse"]
+    cpus: ${LANGFUSE_MINIO_CPU_LIMIT:-0.5}
+    mem_limit: ${LANGFUSE_MINIO_MEM_LIMIT:-512m}
+    logging: *default-logging
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["mkdir -p /data/langfuse && minio server /data --address ':9000' --console-address ':9001'"]
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_S3_ACCESS_KEY_ID:-minio}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_S3_SECRET_ACCESS_KEY:-minio_dev_password}
+    ports:
+      - "${MINIO_API_PORT:-9092}:9000"
+      - "${MINIO_PORT:-9091}:9001"
+    volumes:
+      - langfuse-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-web:
+    image: langfuse/langfuse:3
+    profiles: ["langfuse"]
+    cpus: ${LANGFUSE_WEB_CPU_LIMIT:-1.0}
+    mem_limit: ${LANGFUSE_WEB_MEM_LIMIT:-1536m}
+    logging: *default-logging
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+    ports:
+      - "${LANGFUSE_PORT:-3001}:3000"
+    environment: &langfuse-env
+      DATABASE_URL: postgresql://${LANGFUSE_POSTGRES_USER:-langfuse}:${LANGFUSE_POSTGRES_PASSWORD:-langfuse_dev_password}@langfuse-postgres:5432/${LANGFUSE_POSTGRES_DB:-langfuse}
+      NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3001}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-langfuse_dev_nextauth_secret}
+      SALT: ${LANGFUSE_SALT:-langfuse_dev_salt}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse_dev_password}
+      CLICKHOUSE_DB: ${LANGFUSE_CLICKHOUSE_DB:-langfuse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: 6379
+      REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD:-langfuse_redis_dev_password}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_BUCKET_NAME:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_REGION:-auto}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY:-minio_dev_password}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_BUCKET_NAME:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_REGION:-auto}
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY:-minio_dev_password}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:${MINIO_API_PORT:-9092}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${LANGFUSE_S3_BUCKET_NAME:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_REGION: ${LANGFUSE_S3_REGION:-auto}
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY:-minio_dev_password}
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://localhost:${MINIO_API_PORT:-9092}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
+    restart: unless-stopped
+    networks:
+      - app
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    profiles: ["langfuse"]
+    cpus: ${LANGFUSE_WORKER_CPU_LIMIT:-1.0}
+    mem_limit: ${LANGFUSE_WORKER_MEM_LIMIT:-1024m}
+    logging: *default-logging
+    depends_on:
+      langfuse-web:
+        condition: service_started
+    environment:
+      <<: *langfuse-env
+    restart: unless-stopped
+    networks:
+      - app
+
+  traefik:
+    image: traefik:v3.2
+    profiles: ["edge"]
+    cpus: ${TRAEFIK_CPU_LIMIT:-0.25}
+    mem_limit: ${TRAEFIK_MEM_LIMIT:-128m}
+    logging: *default-logging
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-ops@example.invalid}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    restart: unless-stopped
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  valkey-data:
+  qdrant-data:
+  prometheus-data:
+  grafana-storage:
+  langfuse-postgres-data:
+  langfuse-clickhouse-data:
+  langfuse-clickhouse-logs:
+  langfuse-redis-data:
+  langfuse-minio-data:
+  traefik-letsencrypt:
