@@ -1,5 +1,7 @@
 # FastAPI LangGraph Agent Template
 
+> **Agent Support docs baseline (2026-06-01):** this root README still documents the inherited FastAPI/LangGraph template. The current product baseline and reading order are in [docs/README.md](docs/README.md). If this file conflicts with numbered docs under `docs/`, the numbered docs win. Phase 0 owns rebranding/updating this README.
+
 A production-ready template for building AI agent backends with FastAPI and LangGraph. Handles the hard parts — stateful conversations, long-term memory, tool calling, observability, rate limiting, auth — so you can focus on your agent logic.
 
 **Built for AI engineers** who want a solid foundation, not a tutorial project.

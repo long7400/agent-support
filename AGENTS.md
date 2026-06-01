@@ -16,6 +16,9 @@ make eval-quick       # Run LLM evals (default settings)
 make docker-run       # Docker: API + DB (development)
 make docker-compose-up ENV=development  # Full stack: API + Prometheus + Grafana
 ```
+## Additional Rule Sources
+
+The `rules/` directory contains editor-specific rule files. For Codex work, this `AGENTS.md` is canonical. If a task requires deeper project conventions, read `rules/project-main-rules.mdc` before editing. If there is a conflict, `AGENTS.md` wins.
 
 ## Project Structure
 
