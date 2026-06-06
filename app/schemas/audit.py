@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+
 class AuditEventResponse(BaseModel):
     """Audit event response DTO."""
 

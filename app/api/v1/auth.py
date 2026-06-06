@@ -59,6 +59,7 @@ router = APIRouter()
 security = HTTPBearer()
 db_service = DatabaseService()
 
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> User:
@@ -119,6 +120,7 @@ async def require_operator(
         raise HTTPException(status_code=403, detail="Operator access denied")
     return ActorContext(actor_type="operator", actor_id=token[:8])
 
+
 async def get_current_tenant_member(
     tenant_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -133,6 +135,7 @@ async def get_current_tenant_member(
             if membership is None:
                 raise HTTPException(status_code=403, detail="Tenant membership required")
             return ActorContext(actor_type="user", actor_id=str(current_user.id))
+
 
 async def require_tenant_admin(
     tenant_id: UUID,
@@ -149,6 +152,7 @@ async def require_tenant_admin(
             except TenantAccessDeniedError as exc:
                 raise HTTPException(status_code=403, detail="Tenant admin role required") from exc
             return ActorContext(actor_type="user", actor_id=str(current_user.id))
+
 
 async def authenticate_service_principal(
     credentials: HTTPAuthorizationCredentials = Depends(security),

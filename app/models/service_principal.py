@@ -13,11 +13,14 @@ from app.models.base import Base, TimestampMixin
 
 SERVICE_PRINCIPAL_STATUSES = ("active", "revoked", "expired")
 
+
 class ServicePrincipal(TimestampMixin, Base):
     """Tenant-scoped automation identity."""
 
     __tablename__ = "service_principals"
-    __table_args__ = (CheckConstraint("status IN ('active','revoked','expired')", name="ck_service_principals_status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('active','revoked','expired')", name="ck_service_principals_status"),
+    )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)

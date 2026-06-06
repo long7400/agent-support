@@ -9,7 +9,11 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.limiter import limiter
 from app.core.tenant_context import with_tenant_context
-from app.schemas.service_principal import ServicePrincipalCreate, ServicePrincipalCreateResponse, ServicePrincipalResponse
+from app.schemas.service_principal import (
+    ServicePrincipalCreate,
+    ServicePrincipalCreateResponse,
+    ServicePrincipalResponse,
+)
 from app.schemas.tenant import (
     ActorContext,
     TenantConfigUpdate,
@@ -70,7 +74,9 @@ async def get_tenant(request: Request, tenant_id: UUID, actor: ActorContext = De
 
 @router.patch("/{tenant_id}", response_model=TenantResponse)
 @limiter.limit(settings.RATE_LIMIT_DEFAULT[0])
-async def update_tenant(request: Request, tenant_id: UUID, payload: TenantUpdate, actor: ActorContext = Depends(require_operator)):
+async def update_tenant(
+    request: Request, tenant_id: UUID, payload: TenantUpdate, actor: ActorContext = Depends(require_operator)
+):
     """Update tenant metadata/status. Operator-only for lifecycle status."""
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
@@ -84,7 +90,9 @@ async def update_tenant(request: Request, tenant_id: UUID, payload: TenantUpdate
 
 @router.post("/{tenant_id}/members", response_model=TenantMembershipResponse)
 @limiter.limit(settings.RATE_LIMIT_DEFAULT[0])
-async def add_member(request: Request, tenant_id: UUID, payload: TenantMemberCreate, actor: ActorContext = Depends(require_operator)):
+async def add_member(
+    request: Request, tenant_id: UUID, payload: TenantMemberCreate, actor: ActorContext = Depends(require_operator)
+):
     """Add or update tenant membership."""
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
@@ -98,7 +106,9 @@ async def add_member(request: Request, tenant_id: UUID, payload: TenantMemberCre
 
 @router.post("/{tenant_id}/config", response_model=TenantConfigVersionResponse)
 @limiter.limit(settings.RATE_LIMIT_DEFAULT[0])
-async def update_config(request: Request, tenant_id: UUID, payload: TenantConfigUpdate, actor: ActorContext = Depends(require_tenant_admin)):
+async def update_config(
+    request: Request, tenant_id: UUID, payload: TenantConfigUpdate, actor: ActorContext = Depends(require_tenant_admin)
+):
     """Create a new immutable tenant config version."""
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
@@ -151,7 +161,9 @@ async def revoke_service_principal(
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
             try:
-                principal = await TenantControlPlaneService(session).revoke_service_principal(tenant_id, principal_id, actor)
+                principal = await TenantControlPlaneService(session).revoke_service_principal(
+                    tenant_id, principal_id, actor
+                )
             except TenantControlPlaneError as exc:
                 raise tenant_control_plane_http_error(exc) from exc
             response = ServicePrincipalResponse.model_validate(principal)

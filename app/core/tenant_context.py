@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import bind_context
 
+
 async def set_local_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
     """Set PostgreSQL RLS tenant context for the current transaction."""
     await session.execute(
@@ -16,6 +17,7 @@ async def set_local_tenant_context(session: AsyncSession, tenant_id: UUID) -> No
         {"tenant_id": str(tenant_id)},
     )
     bind_context(tenant_id=str(tenant_id))
+
 
 @asynccontextmanager
 async def with_tenant_context(session: AsyncSession, tenant_id: UUID) -> AsyncIterator[AsyncSession]:

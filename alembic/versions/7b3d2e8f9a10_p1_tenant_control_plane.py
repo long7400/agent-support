@@ -25,6 +25,7 @@ TENANT_OWNED_TABLES = (
     "audit_events",
 )
 
+
 def _create_rls_policy(table_name: str) -> None:
     op.execute(sa.text(f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY"))
     op.execute(sa.text(f"ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY"))
@@ -49,7 +50,12 @@ def upgrade() -> None:
         sa.Column("display_name", sa.String(), nullable=False),
         sa.Column("status", sa.String(), server_default="active", nullable=False),
         sa.Column("config_version", sa.Integer(), server_default="1", nullable=False),
-        sa.Column("retention_policy_json", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=False),
+        sa.Column(
+            "retention_policy_json",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'{}'::jsonb"),
+            nullable=False,
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint("status IN ('active','disabled','suspended','deleting')", name="ck_tenants_status"),
@@ -105,15 +111,29 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column("tenant_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("persona", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=False),
-        sa.Column("official_links", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'[]'::jsonb"), nullable=False),
+        sa.Column(
+            "persona", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=False
+        ),
+        sa.Column(
+            "official_links",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'[]'::jsonb"),
+            nullable=False,
+        ),
         sa.Column("moderation_mode", sa.String(), server_default="shadow", nullable=False),
-        sa.Column("model_budget", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=False),
+        sa.Column(
+            "model_budget",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'{}'::jsonb"),
+            nullable=False,
+        ),
         sa.Column("created_by_actor_type", sa.String(), server_default="operator", nullable=False),
         sa.Column("created_by_actor_id", sa.String(), server_default="system", nullable=False),
         sa.Column("reason", sa.String(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.CheckConstraint("moderation_mode IN ('shadow','propose','enforce')", name="ck_tenant_config_versions_moderation_mode"),
+        sa.CheckConstraint(
+            "moderation_mode IN ('shadow','propose','enforce')", name="ck_tenant_config_versions_moderation_mode"
+        ),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "version", name="uq_tenant_config_versions_tenant_version"),
@@ -128,7 +148,12 @@ def upgrade() -> None:
         sa.Column("trace_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("before", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("after", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=False),
+        sa.Column(
+            "metadata_json",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'{}'::jsonb"),
+            nullable=False,
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),

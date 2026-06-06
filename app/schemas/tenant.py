@@ -6,11 +6,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+
 class ActorContext(BaseModel):
     """Authenticated actor metadata for audit records."""
 
     actor_type: str = Field(..., max_length=64)
     actor_id: str = Field(..., max_length=128)
+
 
 class TenantCreate(BaseModel):
     """Create tenant request."""
@@ -19,6 +21,7 @@ class TenantCreate(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=200)
     retention_policy_json: dict[str, Any] = Field(default_factory=dict)
 
+
 class TenantUpdate(BaseModel):
     """Update tenant metadata/status request."""
 
@@ -26,6 +29,7 @@ class TenantUpdate(BaseModel):
     status: str | None = Field(default=None, pattern=r"^(active|disabled|suspended|deleting)$")
     retention_policy_json: dict[str, Any] | None = None
     reason: str | None = Field(default=None, max_length=500)
+
 
 class TenantResponse(BaseModel):
     """Tenant response DTO."""
@@ -41,11 +45,13 @@ class TenantResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class TenantMemberCreate(BaseModel):
     """Create tenant membership request."""
 
     user_id: int
     role: str = Field(..., pattern=r"^(admin|moderator|viewer)$")
+
 
 class TenantMembershipResponse(BaseModel):
     """Tenant membership response DTO."""
@@ -58,6 +64,7 @@ class TenantMembershipResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class TenantConfigUpdate(BaseModel):
     """Create a new tenant config version."""
 
@@ -66,6 +73,7 @@ class TenantConfigUpdate(BaseModel):
     moderation_mode: str = Field(default="shadow", pattern=r"^(shadow|propose|enforce)$")
     model_budget: dict[str, Any] = Field(default_factory=dict)
     reason: str | None = Field(default=None, max_length=500)
+
 
 class TenantConfigVersionResponse(BaseModel):
     """Tenant config version response DTO."""

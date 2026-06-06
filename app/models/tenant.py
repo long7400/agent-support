@@ -26,11 +26,14 @@ if TYPE_CHECKING:
 TENANT_STATUSES = ("active", "disabled", "suspended", "deleting")
 TENANT_ROLES = ("admin", "moderator", "viewer")
 
+
 class Tenant(TimestampMixin, Base):
     """Top-level tenant boundary."""
 
     __tablename__ = "tenants"
-    __table_args__ = (CheckConstraint("status IN ('active','disabled','suspended','deleting')", name="ck_tenants_status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('active','disabled','suspended','deleting')", name="ck_tenants_status"),
+    )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     slug: Mapped[str] = mapped_column(String, unique=True, nullable=False)
@@ -41,9 +44,14 @@ class Tenant(TimestampMixin, Base):
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     memberships: Mapped[list[TenantMembership]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
-    config_versions: Mapped[list[TenantConfigVersion]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
-    service_principals: Mapped[list[ServicePrincipal]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    config_versions: Mapped[list[TenantConfigVersion]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
+    service_principals: Mapped[list[ServicePrincipal]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
     audit_events: Mapped[list[AuditEvent]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+
 
 class TenantRole(Base):
     """Reference role allowed for tenant memberships."""
@@ -51,6 +59,7 @@ class TenantRole(Base):
     __tablename__ = "tenant_roles"
 
     name: Mapped[str] = mapped_column(String, primary_key=True)
+
 
 class TenantMembership(TimestampMixin, Base):
     """Human user membership in a tenant."""
@@ -68,13 +77,16 @@ class TenantMembership(TimestampMixin, Base):
 
     tenant: Mapped[Tenant] = relationship(back_populates="memberships")
 
+
 class TenantConfigVersion(TimestampMixin, Base):
     """Immutable tenant config version."""
 
     __tablename__ = "tenant_config_versions"
     __table_args__ = (
         UniqueConstraint("tenant_id", "version", name="uq_tenant_config_versions_tenant_version"),
-        CheckConstraint("moderation_mode IN ('shadow','propose','enforce')", name="ck_tenant_config_versions_moderation_mode"),
+        CheckConstraint(
+            "moderation_mode IN ('shadow','propose','enforce')", name="ck_tenant_config_versions_moderation_mode"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

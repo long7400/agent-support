@@ -32,20 +32,26 @@ ALLOWED_SERVICE_PRINCIPAL_SCOPES = {
     "capability:write",
 }
 
+
 class TenantControlPlaneError(ValueError):
     """Base tenant control-plane service error."""
+
 
 class TenantNotFoundError(TenantControlPlaneError):
     """Tenant was not found."""
 
+
 class TenantAccessDeniedError(TenantControlPlaneError):
     """Actor lacks tenant access."""
+
 
 class TenantRuntimeDisabledError(TenantControlPlaneError):
     """Tenant is not active for runtime usage."""
 
+
 class InvalidServicePrincipalError(TenantControlPlaneError):
     """Service principal credential is invalid."""
+
 
 class TenantControlPlaneService:
     """Business logic for tenant control-plane operations."""
@@ -142,7 +148,9 @@ class TenantControlPlaneService:
     async def get_membership(self, tenant_id: UUID, user_id: int) -> TenantMembership | None:
         """Return a user's tenant membership when present."""
         result = await self.session.execute(
-            select(TenantMembership).where(TenantMembership.tenant_id == tenant_id, TenantMembership.user_id == user_id)
+            select(TenantMembership).where(
+                TenantMembership.tenant_id == tenant_id, TenantMembership.user_id == user_id
+            )
         )
         return result.scalar_one_or_none()
 
@@ -223,7 +231,9 @@ class TenantControlPlaneService:
         await self.session.flush()
         return principal, raw_key
 
-    async def revoke_service_principal(self, tenant_id: UUID, principal_id: UUID, actor: ActorContext) -> ServicePrincipal:
+    async def revoke_service_principal(
+        self, tenant_id: UUID, principal_id: UUID, actor: ActorContext
+    ) -> ServicePrincipal:
         """Revoke a service principal."""
         principal = await self.session.get(ServicePrincipal, principal_id)
         if principal is None or principal.tenant_id != tenant_id:
@@ -250,7 +260,9 @@ class TenantControlPlaneService:
         """Authenticate a raw service-principal key within a tenant RLS context."""
         key_prefix = api_key[:12]
         result = await self.session.execute(
-            select(ServicePrincipal).where(ServicePrincipal.tenant_id == tenant_id, ServicePrincipal.key_prefix == key_prefix)
+            select(ServicePrincipal).where(
+                ServicePrincipal.tenant_id == tenant_id, ServicePrincipal.key_prefix == key_prefix
+            )
         )
         principal = result.scalar_one_or_none()
         now = datetime.now(UTC)

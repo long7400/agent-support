@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+
 class AuditEvent(TimestampMixin, Base):
     """Tenant-scoped audit event for privileged control-plane actions."""
 
