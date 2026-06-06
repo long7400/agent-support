@@ -2,7 +2,7 @@
 
 Full SQL DDL + index plan cho domain tables. SQLAlchemy 2.0 ORM (ADR-004), RLS enforced (ADR-002). DDL là reference design — Alembic migration là source of truth thực thi.
 
-> Convention: mọi tenant-owned table có `tenant_id UUID NOT NULL` + RLS policy. PK = UUID (`gen_random_uuid()`). Timestamps `timestamptz DEFAULT now()`. RLS SQL pattern: [migration-rules.md](migration-rules.md).
+> Convention: mọi tenant-owned table có `tenant_id UUID NOT NULL` + RLS policy. PK = UUID (`gen_random_uuid()`). Timestamps `timestamptz DEFAULT now()`. RLS SQL pattern: [migration-rules.md](migration-rules.md). App code sets the transaction-local tenant context with bind-safe `SELECT set_config('app.current_tenant', :tenant_id, true)`, which is equivalent to `SET LOCAL app.current_tenant = ...`.
 
 ## Extensions & Roles
 
