@@ -31,28 +31,31 @@ CREATE TABLE tenants (
 );
 
 CREATE TABLE tenant_roles (
-    id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name  TEXT UNIQUE NOT NULL          -- admin|moderator|viewer
+    name  TEXT PRIMARY KEY              -- admin|moderator|viewer
 );
 
 CREATE TABLE tenant_memberships (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id),
-    user_id    UUID NOT NULL,           -- template user
+    user_id    INT NOT NULL REFERENCES "user"(id), -- P1 aligns with template user.id
     role       TEXT NOT NULL REFERENCES tenant_roles(name),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (tenant_id, user_id)
 );
 
 CREATE TABLE service_principals (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id     UUID NOT NULL REFERENCES tenants(id),
-    name          TEXT NOT NULL,
-    key_hash      TEXT NOT NULL,         -- hashed API key, never raw
-    scopes        TEXT[] NOT NULL DEFAULT '{}',
-    status        TEXT NOT NULL DEFAULT 'active',
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_used_at  TIMESTAMPTZ
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+    name            TEXT NOT NULL,
+    key_hash        TEXT NOT NULL,       -- hashed API key, never raw
+    key_prefix      TEXT NOT NULL,
+    key_fingerprint TEXT NOT NULL,
+    scopes          TEXT[] NOT NULL DEFAULT '{}',
+    status          TEXT NOT NULL DEFAULT 'active',
+    expires_at      TIMESTAMPTZ,
+    revoked_at      TIMESTAMPTZ,
+    last_used_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE tenant_config_versions (
@@ -392,18 +395,17 @@ CREATE INDEX idx_review_open ON review_queue_items (tenant_id, status, created_a
 ```sql
 CREATE TABLE audit_events (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    trace_id      UUID,
-    tenant_id     UUID,                            -- nullable for operator-global
+    tenant_id     UUID NOT NULL REFERENCES tenants(id),
     actor_type    TEXT NOT NULL,
     actor_id      TEXT NOT NULL,                   -- stable redacted id
     action        TEXT NOT NULL,                   -- stable.action.name
-    resource_type TEXT, resource_id TEXT,
-    before_summary JSONB, after_summary JSONB,     -- no raw secrets
-    redaction_applied BOOLEAN NOT NULL DEFAULT true,
+    trace_id      UUID,
+    before        JSONB,                           -- no raw secrets
+    after         JSONB,                           -- no raw secrets
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_audit_tenant_time ON audit_events (tenant_id, created_at);
-CREATE INDEX idx_audit_trace ON audit_events (trace_id);
+CREATE INDEX idx_audit_events_tenant_action ON audit_events (tenant_id, action);
 ```
 
 ## Index Plan Summary
