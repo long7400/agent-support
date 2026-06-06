@@ -12,8 +12,9 @@ from app.core.logging import bind_context
 
 async def set_local_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
     """Set PostgreSQL RLS tenant context for the current transaction."""
+    # Equivalent to SET LOCAL app.current_tenant, but bind-safe with asyncpg.
     await session.execute(
-        text("SET LOCAL app.current_tenant = :tenant_id"),
+        text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
         {"tenant_id": str(tenant_id)},
     )
     bind_context(tenant_id=str(tenant_id))

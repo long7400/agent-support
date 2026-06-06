@@ -175,6 +175,17 @@ class Settings:
         self.WORKER_POLL_INTERVAL_SECONDS = float(os.getenv("WORKER_POLL_INTERVAL_SECONDS", "2.0"))
         self.WORKER_SHUTDOWN_GRACE_SECONDS = float(os.getenv("WORKER_SHUTDOWN_GRACE_SECONDS", "10.0"))
 
+        # P2 Platform Ingest Configuration
+        self.PROCESSING_CLAIM_BATCH_SIZE = int(os.getenv("PROCESSING_CLAIM_BATCH_SIZE", "10"))
+        self.DELIVERY_CLAIM_BATCH_SIZE = int(os.getenv("DELIVERY_CLAIM_BATCH_SIZE", "10"))
+        self.MAX_INFLIGHT_PER_TENANT = int(os.getenv("MAX_INFLIGHT_PER_TENANT", "5"))
+        self.MAX_CONCURRENT_DELIVERIES = int(os.getenv("MAX_CONCURRENT_DELIVERIES", "20"))
+        self.PROCESSING_STALE_AFTER_SECONDS = int(os.getenv("PROCESSING_STALE_AFTER_SECONDS", "120"))
+        self.OUTBOX_POLL_INTERVAL_SECONDS = float(os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "5.0"))
+        self.RETRY_MAX_ATTEMPTS = int(os.getenv("RETRY_MAX_ATTEMPTS", "5"))
+        self.RETRY_BACKOFF_BASE_SECONDS = int(os.getenv("RETRY_BACKOFF_BASE_SECONDS", "2"))
+        self.RETRY_BACKOFF_MAX_SECONDS = int(os.getenv("RETRY_BACKOFF_MAX_SECONDS", "300"))
+
         # Secret Management Configuration
         self.KMS_PROVIDER = os.getenv("KMS_PROVIDER", "local").lower()
         self.LOCAL_KMS_SECRET = os.getenv("LOCAL_KMS_SECRET", "")
