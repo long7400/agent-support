@@ -1,11 +1,10 @@
 """Async SQLAlchemy database foundation for tenant-aware runtime code."""
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager
 from urllib.parse import quote_plus
 from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
+from app.core.tenant_context import with_tenant_context
 
 
 def build_database_url(driver: str) -> str:
@@ -55,16 +55,6 @@ async def get_async_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-@asynccontextmanager
-async def tenant_transaction(session: AsyncSession, tenant_id: UUID) -> AsyncIterator[AsyncSession]:
-    """Open a transaction and set the PostgreSQL RLS tenant context.
-
-    ``SET LOCAL`` is intentionally scoped to the active transaction so tenant
-    context cannot leak through the connection pool.
-    """
-    async with session.begin():
-        await session.execute(
-            text("SET LOCAL app.current_tenant = :tenant_id"),
-            {"tenant_id": str(tenant_id)},
-        )
-        yield session
+def tenant_transaction(session: AsyncSession, tenant_id: UUID) -> AbstractAsyncContextManager[AsyncSession]:
+    """Backward-compatible alias for tenant-scoped transactions."""
+    return with_tenant_context(session, tenant_id)

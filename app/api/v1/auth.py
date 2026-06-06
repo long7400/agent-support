@@ -6,6 +6,7 @@ and token verification.
 
 import uuid
 from typing import List
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -18,6 +19,7 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
 )
+from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -33,7 +35,16 @@ from app.schemas.auth import (
     UserCreate,
     UserResponse,
 )
+from app.core.tenant_context import with_tenant_context
+from app.schemas.service_principal import ServicePrincipalAuthResult, ServicePrincipalCredential
+from app.schemas.tenant import ActorContext
 from app.services.database import DatabaseService
+from app.services.tenant_control_plane import (
+    ADMIN_ROLES,
+    InvalidServicePrincipalError,
+    TenantAccessDeniedError,
+    TenantControlPlaneService,
+)
 from app.utils.auth import (
     create_access_token,
     verify_token,
@@ -47,7 +58,6 @@ from app.utils.sanitization import (
 router = APIRouter()
 security = HTTPBearer()
 db_service = DatabaseService()
-
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -98,6 +108,66 @@ async def get_current_user(
             detail="Invalid token format",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+async def require_operator(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> ActorContext:
+    """Require an operator API key for cross-tenant control-plane actions."""
+    token = sanitize_string(credentials.credentials)
+    if token not in settings.OPERATOR_API_KEYS:
+        raise HTTPException(status_code=403, detail="Operator access denied")
+    return ActorContext(actor_type="operator", actor_id=token[:8])
+
+async def get_current_tenant_member(
+    tenant_id: UUID,
+    current_user: User = Depends(get_current_user),
+) -> ActorContext:
+    """Require the current user to be a member of the tenant."""
+    from app.core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        async with with_tenant_context(session, tenant_id):
+            service = TenantControlPlaneService(session)
+            membership = await service.get_membership(tenant_id, current_user.id)
+            if membership is None:
+                raise HTTPException(status_code=403, detail="Tenant membership required")
+            return ActorContext(actor_type="user", actor_id=str(current_user.id))
+
+async def require_tenant_admin(
+    tenant_id: UUID,
+    current_user: User = Depends(get_current_user),
+) -> ActorContext:
+    """Require current user to be a tenant admin."""
+    from app.core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        async with with_tenant_context(session, tenant_id):
+            service = TenantControlPlaneService(session)
+            try:
+                await service.require_membership(tenant_id, current_user.id, ADMIN_ROLES)
+            except TenantAccessDeniedError as exc:
+                raise HTTPException(status_code=403, detail="Tenant admin role required") from exc
+            return ActorContext(actor_type="user", actor_id=str(current_user.id))
+
+async def authenticate_service_principal(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> ServicePrincipalAuthResult:
+    """Authenticate a service-principal bearer token."""
+    from app.core.database import AsyncSessionLocal
+
+    try:
+        credential = ServicePrincipalCredential.model_validate_json(credentials.credentials)
+    except ValidationError as exc:
+        raise HTTPException(status_code=401, detail="Invalid service principal") from exc
+
+    async with AsyncSessionLocal() as session:
+        async with with_tenant_context(session, credential.tenant_id):
+            service = TenantControlPlaneService(session)
+            try:
+                return await service.authenticate_service_principal(credential.api_key, credential.tenant_id)
+            except (InvalidServicePrincipalError, TenantAccessDeniedError) as exc:
+                raise HTTPException(status_code=401, detail="Invalid service principal") from exc
 
 
 async def get_current_session(

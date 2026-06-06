@@ -42,13 +42,13 @@ login (email/password) -> JWT user token
 ## Service Principals (Automation, ADR-005)
 
 ```text
-service_principals(id, tenant_id, name, key_hash, scopes[], status, last_used_at)
+service_principals(id, tenant_id, name, key_hash, key_prefix, key_fingerprint, scopes[], status, expires_at, revoked_at, last_used_at)
 ```
 
-- API key generate bởi tenant admin, hiển thị 1 lần, lưu `key_hash` (không raw).
+- API key generate bởi tenant admin, hiển thị 1 lần, lưu `key_hash`, `key_prefix`, và fingerprint; không lưu raw key.
 - Scope-limited (vd `source:write`, `capability:read`).
 - Audit `actor_type=service_principal` (phân biệt human vs machine — yêu cầu audit).
-- Revoke qua status. Rotate qua new key + revoke old.
+- Revoke qua `status=revoked` + `revoked_at`. Expiry-ready qua `expires_at`. Rotate bằng cách tạo key mới rồi revoke key cũ.
 
 ## Adapter Principal (Platform)
 
