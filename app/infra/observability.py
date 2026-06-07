@@ -5,11 +5,11 @@ from typing import Optional
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from app.core.config import (
+from app.infra.config import (
     Environment,
     settings,
 )
-from app.core.logging import logger
+from app.infra.logging import logger
 
 
 def langfuse_init() -> None:

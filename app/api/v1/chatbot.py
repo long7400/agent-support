@@ -16,9 +16,9 @@ from fastapi import (
 )
 
 from app.api.v1.auth import get_current_session
-from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.logging import logger
+from app.infra.config import settings
+from app.infra.limiter import limiter
+from app.infra.logging import logger
 from app.models.session import Session
 from app.schemas.chat import (
     ChatRequest,
@@ -26,7 +26,6 @@ from app.schemas.chat import (
     Message,
 )
 
-# Phase 3: harness runtime replaces LangGraphAgent
 from app.agent_harness.contracts import (
     TenantHarnessProfile,
     TrustedRuntimeEvent,

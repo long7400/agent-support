@@ -11,8 +11,8 @@ so rate limits work correctly across multiple app instances.
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.core.config import settings
-from app.core.logging import logger
+from app.infra.config import settings
+from app.infra.logging import logger
 
 # Build storage URI for Valkey if configured
 _storage_uri = None

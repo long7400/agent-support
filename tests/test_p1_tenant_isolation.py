@@ -31,7 +31,7 @@ def test_migration_enables_forced_rls_on_tenant_owned_tables() -> None:
 
 def test_tenant_context_uses_set_local_transaction_scope() -> None:
     """Tenant context helper uses SET LOCAL rather than connection-persistent SET."""
-    source = Path("app/core/tenant_context.py").read_text()
+    source = Path("app/infra/tenant_context.py").read_text()
 
     assert "async with session.begin()" in source
     assert "SET LOCAL app.current_tenant" in source
@@ -68,7 +68,7 @@ def test_tenant_membership_dependencies_use_tenant_context() -> None:
     """Membership auth dependencies read RLS-protected memberships under tenant context."""
     source = Path("app/api/v1/auth.py").read_text()
 
-    assert "from app.core.tenant_context import with_tenant_context" in source
+    assert "from app.infra.tenant_context import with_tenant_context" in source
     assert source.count("with_tenant_context(session, tenant_id)") >= 2
 
 

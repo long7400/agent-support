@@ -1,11 +1,11 @@
 """Runtime preflight checks for production-safe infrastructure defaults."""
 
-from app.core.config import (
+from app.infra.config import (
     Environment,
     settings,
 )
-from app.core.kms import validate_kms_configuration
-from app.core.logging import logger
+from app.infra.kms import validate_kms_configuration
+from app.infra.logging import logger
 
 
 class RuntimeGuardrailError(RuntimeError):

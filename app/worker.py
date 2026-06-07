@@ -11,11 +11,11 @@ A single worker process can run both roles if WORKER_ROLE=processing,delivery.
 import asyncio
 import signal
 
-from app.core.cache import cache_service
-from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.core.logging import logger
-from app.core.runtime_guardrails import validate_runtime_guardrails
+from app.infra.cache import cache_service
+from app.infra.config import settings
+from app.infra.database import AsyncSessionLocal
+from app.infra.logging import logger
+from app.infra.runtime_guardrails import validate_runtime_guardrails
 from app.services.outbox_worker import ProcessingOutboxWorker
 from app.services.delivery_sender import DeliverySender
 from app.services.rate_limits import RateLimiter

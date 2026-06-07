@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from sqlalchemy import update
 
-from app.core.database import AsyncSessionLocal
-from app.core.logging import logger
-from app.core.metrics import session_names_generated_total
+from app.infra.database import AsyncSessionLocal
+from app.infra.logging import logger
+from app.infra.metrics import session_names_generated_total
 from app.models.session import Session as ChatSession
 from app.services.database import database_service
 

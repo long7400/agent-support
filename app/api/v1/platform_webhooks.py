@@ -8,11 +8,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.core.limiter import limiter
-from app.core.logging import bind_context, logger
-from app.core.tenant_context import with_tenant_context
+from app.infra.config import settings
+from app.infra.database import AsyncSessionLocal
+from app.infra.limiter import limiter
+from app.infra.logging import bind_context, logger
+from app.infra.tenant_context import with_tenant_context
 from app.schemas.adapter import Platform
 from app.services.platform_ingest import (
     DisabledChannelError,

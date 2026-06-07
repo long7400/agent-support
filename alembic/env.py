@@ -9,7 +9,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from app.core.database import build_sync_database_url
+from app.infra.database import build_sync_database_url
 from app.models.agent_run import AgentRun  # noqa: F401
 from app.models.agent_run_step import AgentRunStep  # noqa: F401
 from app.models.audit import AuditEvent  # noqa: F401

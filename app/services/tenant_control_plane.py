@@ -12,7 +12,7 @@ import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.tenant_context import set_local_tenant_context
+from app.infra.tenant_context import set_local_tenant_context
 from app.models.audit import AuditEvent
 from app.models.service_principal import ServicePrincipal
 from app.models.tenant import Tenant, TenantConfigVersion, TenantMembership

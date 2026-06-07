@@ -5,10 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.v1.auth import require_operator, require_tenant_admin
-from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.core.limiter import limiter
-from app.core.tenant_context import with_tenant_context
+from app.infra.config import settings
+from app.infra.database import AsyncSessionLocal
+from app.infra.limiter import limiter
+from app.infra.tenant_context import with_tenant_context
 from app.schemas.service_principal import (
     ServicePrincipalCreate,
     ServicePrincipalCreateResponse,

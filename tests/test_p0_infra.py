@@ -5,18 +5,18 @@ import asyncio
 import pytest
 from dotenv import dotenv_values
 
-from app.core import observability
-from app.core.config import (
+from app.infra import observability
+from app.infra.config import (
     Environment,
     settings,
 )
-from app.core.database import build_async_database_url
-from app.core.kms import (
+from app.infra.database import build_async_database_url
+from app.infra.kms import (
     KMSConfigurationError,
     LocalKMSProvider,
     validate_kms_configuration,
 )
-from app.core.runtime_guardrails import (
+from app.infra.runtime_guardrails import (
     RuntimeGuardrailError,
     validate_runtime_guardrails,
 )
