@@ -1,10 +1,9 @@
-"""Chatbot API endpoints for handling chat interactions.
+"""Chatbot API endpoints using the harness runtime.
 
-This module provides endpoints for chat interactions, including regular chat,
-streaming chat, message history management, and chat history clearing.
+Phase 3: uses HarnessRunner with FakeModel (no real LLM calls).
+Keeps the same API shape as the template chatbot but delegates to the
+deterministic harness runtime.
 """
-
-import json
 
 from fastapi import (
     APIRouter,
@@ -12,24 +11,29 @@ from fastapi import (
     HTTPException,
     Request,
 )
-from fastapi.responses import StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
-from app.core.langgraph.graph import LangGraphAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
-from app.core.metrics import llm_stream_duration_seconds
 from app.models.session import Session
 from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
-    StreamResponse,
+    Message,
 )
-from app.services.session_naming import maybe_name_session
+
+# Phase 3: harness runtime replaces LangGraphAgent
+from app.agent_harness.runner import HarnessRunner
+from app.agent_harness.contracts import (
+    TenantHarnessProfile,
+    TrustedRuntimeEvent,
+)
 
 router = APIRouter()
-agent = LangGraphAgent()
+
+# Module-level harness runner (stateless, no real LLM)
+_runner = HarnessRunner()
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -39,7 +43,9 @@ async def chat(
     chat_request: ChatRequest,
     session: Session = Depends(get_current_session),
 ):
-    """Process a chat request using LangGraph.
+    """Process a chat request using the harness runtime.
+
+    Uses FakeModel for deterministic responses — no real LLM calls.
 
     Args:
         request: The FastAPI request object for rate limiting.
@@ -54,94 +60,71 @@ async def chat(
     """
     try:
         logger.info(
-            "chat_request_received",
+            "harness_chat_request_received",
             session_id=session.id,
             message_count=len(chat_request.messages),
         )
 
-        if settings.SESSION_NAMING_ENABLED:
-            await maybe_name_session(session.id, session.name, chat_request.messages)
+        # Get the last user message
+        last_user_msg = None
+        for msg in reversed(chat_request.messages):
+            if msg.role == "user":
+                last_user_msg = msg
+                break
 
-        result = await agent.get_response(
-            chat_request.messages, session.id, user_id=str(session.user_id), username=session.username
-        )
+        if last_user_msg is None:
+            return ChatResponse(messages=[Message(role="assistant", content="Please provide a message.")])
 
-        logger.info("chat_request_processed", session_id=session.id)
+        # Build a trusted runtime event and run through harness
+        event: TrustedRuntimeEvent = {
+            "event_id": session.id.hex if hasattr(session.id, "hex") else session.id,
+            "tenant_id": None,  # No tenant context for chatbot sessions
+            "chat_event_id": session.id.hex if hasattr(session.id, "hex") else session.id,
+            "platform": "telegram",
+            "channel_id": None,
+            "thread_id": None,
+            "user_id_hash": str(session.user_id or ""),
+            "message_type": "text",
+            "text_preview": last_user_msg.content,
+            "metadata": {},
+        }
 
-        return ChatResponse(messages=result)
-    except Exception as e:
-        logger.exception("chat_request_failed", session_id=session.id, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        # Phase 3: inline harness run without DB session
+        from app.agent_harness.middleware.stack import build_default_middleware_stack
+        from app.agent_harness.models.fake_model import FakeModel
+        from app.agent_harness.capabilities.registry import FakeCapabilityRegistry
+        from app.agent_harness.runtime import AgentHarnessRuntime
 
+        model = FakeModel()
+        registry = FakeCapabilityRegistry()
+        middleware = build_default_middleware_stack()
+        runtime = AgentHarnessRuntime(model, registry, middleware)
 
-@router.post("/chat/stream")
-@limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat_stream"][0])
-async def chat_stream(
-    request: Request,
-    chat_request: ChatRequest,
-    session: Session = Depends(get_current_session),
-):
-    """Process a chat request using LangGraph with streaming response.
+        profile: TenantHarnessProfile = {
+            "tenant_id": None,
+            "config_version": 1,
+            "policy_version": 1,
+            "enabled_platforms": ["telegram", "discord"],
+            "allowed_capabilities": ["fake_search", "official_links"],
+            "model_policy": {},
+            "memory_policy": {},
+            "moderation_policy": {"mode": "shadow"},
+            "escalation_policy": {},
+            "budgets": {},
+        }
 
-    Args:
-        request: The FastAPI request object for rate limiting.
-        chat_request: The chat request containing messages.
-        session: The current session from the auth token.
+        result = await runtime.run(event, profile)
+        response_text = result.get("response_text", "I'm a fake model response.")
 
-    Returns:
-        StreamingResponse: A streaming response of the chat completion.
-
-    Raises:
-        HTTPException: If there's an error processing the request.
-    """
-    try:
         logger.info(
-            "stream_chat_request_received",
+            "harness_chat_request_processed",
             session_id=session.id,
-            message_count=len(chat_request.messages),
+            status=result.get("status"),
         )
 
-        if settings.SESSION_NAMING_ENABLED:
-            await maybe_name_session(session.id, session.name, chat_request.messages)
-
-        async def event_generator():
-            """Generate streaming events.
-
-            Yields:
-                str: Server-sent events in JSON format.
-
-            Raises:
-                Exception: If there's an error during streaming.
-            """
-            try:
-                with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
-                    async for chunk in agent.get_stream_response(
-                        chat_request.messages, session.id, user_id=str(session.user_id), username=session.username
-                    ):
-                        response = StreamResponse(content=chunk, done=False)
-                        yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
-
-                # Send final message indicating completion
-                final_response = StreamResponse(content="", done=True)
-                yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
-
-            except Exception as e:
-                logger.exception(
-                    "stream_chat_request_failed",
-                    session_id=session.id,
-                    error=str(e),
-                )
-                error_response = StreamResponse(content=str(e), done=True)
-                yield f"data: {json.dumps(error_response.model_dump(mode='json'))}\n\n"
-
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-
+        return ChatResponse(messages=[Message(role="assistant", content=response_text)])
     except Exception as e:
-        logger.exception(
-            "stream_chat_request_failed",
-            session_id=session.id,
-            error=str(e),
-        )
+        logger.exception("harness_chat_request_failed", session_id=session.id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -153,22 +136,9 @@ async def get_session_messages(
 ):
     """Get all messages for a session.
 
-    Args:
-        request: The FastAPI request object for rate limiting.
-        session: The current session from the auth token.
-
-    Returns:
-        ChatResponse: All messages in the session.
-
-    Raises:
-        HTTPException: If there's an error retrieving the messages.
+    Phase 3: returns empty history since harness doesn't track chatbot sessions.
     """
-    try:
-        messages = await agent.get_chat_history(session.id)
-        return ChatResponse(messages=messages)
-    except Exception as e:
-        logger.exception("get_messages_failed", session_id=session.id, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return ChatResponse(messages=[])
 
 
 @router.delete("/messages")
@@ -179,16 +149,6 @@ async def clear_chat_history(
 ):
     """Clear all messages for a session.
 
-    Args:
-        request: The FastAPI request object for rate limiting.
-        session: The current session from the auth token.
-
-    Returns:
-        dict: A message indicating the chat history was cleared.
+    Phase 3: no-op since messages are not persisted for chatbot sessions.
     """
-    try:
-        await agent.clear_chat_history(session.id)
-        return {"message": "Chat history cleared successfully"}
-    except Exception as e:
-        logger.exception("clear_chat_history_failed", session_id=session.id, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"message": "Chat history cleared successfully"}
