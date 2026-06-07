@@ -76,18 +76,21 @@ async def chat(
 
         # Build a trusted runtime event and run through harness
         session_uuid = session.id if isinstance(session.id, UUID) else uuid5(NAMESPACE_URL, str(session.id))
-        event = cast(TrustedRuntimeEvent, {
-            "event_id": session_uuid,
-            "tenant_id": session_uuid,  # Template chatbot sessions use a synthetic tenant.
-            "chat_event_id": session_uuid,
-            "platform": "telegram",
-            "channel_id": session_uuid,
-            "thread_id": None,
-            "user_id_hash": str(session.user_id or ""),
-            "message_type": "text",
-            "text_preview": last_user_msg.content,
-            "metadata": {},
-        })
+        event = cast(
+            TrustedRuntimeEvent,
+            {
+                "event_id": session_uuid,
+                "tenant_id": session_uuid,  # Template chatbot sessions use a synthetic tenant.
+                "chat_event_id": session_uuid,
+                "platform": "telegram",
+                "channel_id": session_uuid,
+                "thread_id": None,
+                "user_id_hash": str(session.user_id or ""),
+                "message_type": "text",
+                "text_preview": last_user_msg.content,
+                "metadata": {},
+            },
+        )
 
         # Phase 3: inline harness run without DB session
         from app.agent_harness.middleware.stack import build_default_middleware_stack
@@ -100,18 +103,21 @@ async def chat(
         middleware = build_default_middleware_stack()
         runtime = AgentHarnessRuntime(model, registry, middleware)
 
-        profile = cast(TenantHarnessProfile, {
-            "tenant_id": session_uuid,
-            "config_version": 1,
-            "policy_version": 1,
-            "enabled_platforms": ["telegram", "discord"],
-            "allowed_capabilities": ["fake_search", "official_links"],
-            "model_policy": {},
-            "memory_policy": {},
-            "moderation_policy": {"mode": "shadow"},
-            "escalation_policy": {},
-            "budgets": {},
-        })
+        profile = cast(
+            TenantHarnessProfile,
+            {
+                "tenant_id": session_uuid,
+                "config_version": 1,
+                "policy_version": 1,
+                "enabled_platforms": ["telegram", "discord"],
+                "allowed_capabilities": ["fake_search", "official_links"],
+                "model_policy": {},
+                "memory_policy": {},
+                "moderation_policy": {"mode": "shadow"},
+                "escalation_policy": {},
+                "budgets": {},
+            },
+        )
 
         result = await runtime.run(event, profile)
         response_text = result.get("response_text", "I'm a fake model response.")

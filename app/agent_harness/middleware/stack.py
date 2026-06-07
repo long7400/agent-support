@@ -39,16 +39,19 @@ def build_default_middleware_stack(**kwargs: Any) -> list[Middleware]:
     - Human approval wraps destructive actions
     - Observability wraps the full lifecycle
     """
-    return cast(list[Middleware], [
-        TenantContextMiddleware(profile_loader=kwargs.get("profile_loader")),
-        PlatformContextMiddleware(),
-        MemoryMiddleware(memory_loader=kwargs.get("memory_loader")),
-        DynamicPromptMiddleware(prompt_builder=kwargs.get("prompt_builder")),
-        ContextBudgetMiddleware(max_tokens=kwargs.get("max_tokens")),
-        ModelPolicyMiddleware(model_selector=kwargs.get("model_selector")),
-        CapabilityRegistryMiddleware(capability_filter=kwargs.get("capability_filter")),
-        ToolGuardMiddleware(validator=kwargs.get("tool_validator")),
-        RiskPolicyMiddleware(risk_detector=kwargs.get("risk_detector")),
-        HumanApprovalMiddleware(approval_checker=kwargs.get("approval_checker")),
-        ObservabilityMiddleware(),
-    ])
+    return cast(
+        list[Middleware],
+        [
+            TenantContextMiddleware(profile_loader=kwargs.get("profile_loader")),
+            PlatformContextMiddleware(),
+            MemoryMiddleware(memory_loader=kwargs.get("memory_loader")),
+            DynamicPromptMiddleware(prompt_builder=kwargs.get("prompt_builder")),
+            ContextBudgetMiddleware(max_tokens=kwargs.get("max_tokens")),
+            ModelPolicyMiddleware(model_selector=kwargs.get("model_selector")),
+            CapabilityRegistryMiddleware(capability_filter=kwargs.get("capability_filter")),
+            ToolGuardMiddleware(validator=kwargs.get("tool_validator")),
+            RiskPolicyMiddleware(risk_detector=kwargs.get("risk_detector")),
+            HumanApprovalMiddleware(approval_checker=kwargs.get("approval_checker")),
+            ObservabilityMiddleware(),
+        ],
+    )

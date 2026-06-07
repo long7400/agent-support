@@ -131,28 +131,31 @@ class AgentHarnessRuntime:
         messages = [
             {"role": "user", "content": event.get("text_preview", "")},
         ]
-        state = cast(AgentRunState, {
-            "trace_id": str(event.get("event_id", "")),
-            "tenant_id": event.get("tenant_id"),
-            "input_event_id": str(event.get("chat_event_id", "")),
-            "platform": event.get("platform", "telegram"),
-            "channel_id": str(event.get("channel_id", "")),
-            "thread_id": str(event.get("thread_id", "")) if event.get("thread_id") else None,
-            "user_id_hash": event.get("user_id_hash", ""),
-            "message_id": str(event.get("chat_event_id", "")),
-            "inbound_text_preview": event.get("text_preview", ""),
-            "messages": messages,
-            "tenant_context": {"profile": profile},
-            "platform_context": {},
-            "memory_context": {},
-            "available_capabilities": [],
-            "tool_results": [],
-            "policy_decisions": [],
-            "risk_signals": [],
-            "budgets": {},
-            "final_response": None,
-            "audit_refs": [str(agent_run_id)],
-        })
+        state = cast(
+            AgentRunState,
+            {
+                "trace_id": str(event.get("event_id", "")),
+                "tenant_id": event.get("tenant_id"),
+                "input_event_id": str(event.get("chat_event_id", "")),
+                "platform": event.get("platform", "telegram"),
+                "channel_id": str(event.get("channel_id", "")),
+                "thread_id": str(event.get("thread_id", "")) if event.get("thread_id") else None,
+                "user_id_hash": event.get("user_id_hash", ""),
+                "message_id": str(event.get("chat_event_id", "")),
+                "inbound_text_preview": event.get("text_preview", ""),
+                "messages": messages,
+                "tenant_context": {"profile": profile},
+                "platform_context": {},
+                "memory_context": {},
+                "available_capabilities": [],
+                "tool_results": [],
+                "policy_decisions": [],
+                "risk_signals": [],
+                "budgets": {},
+                "final_response": None,
+                "audit_refs": [str(agent_run_id)],
+            },
+        )
         return state
 
     def _build_context(
@@ -161,14 +164,17 @@ class AgentHarnessRuntime:
         agent_run_id: UUID,
     ) -> HarnessContext:
         """Build HarnessContext from event data."""
-        return cast(HarnessContext, {
-            "trace_id": str(event.get("event_id", "")),
-            "tenant_id": event.get("tenant_id"),
-            "deadline_ms": 30000,
-            "run_mode": self._run_mode,
-            "services": {},
-            "redaction_policy": {},
-        })
+        return cast(
+            HarnessContext,
+            {
+                "trace_id": str(event.get("event_id", "")),
+                "tenant_id": event.get("tenant_id"),
+                "deadline_ms": 30000,
+                "run_mode": self._run_mode,
+                "services": {},
+                "redaction_policy": {},
+            },
+        )
 
     async def _run_model_loop(
         self,

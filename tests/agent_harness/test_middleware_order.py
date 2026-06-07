@@ -135,6 +135,7 @@ def test_observability_wraps_everything():
 
 def test_stack_accepts_custom_dependencies():
     """Stack should accept custom dependency injection for testing."""
+
     async def mock_profile_loader(tenant_id):
         return {}
 

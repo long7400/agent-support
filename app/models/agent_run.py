@@ -31,9 +31,7 @@ class AgentRun(TimestampMixin, Base):
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
-    )
+    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     processing_outbox_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("processing_outbox.id"), nullable=True
     )
@@ -48,6 +46,4 @@ class AgentRun(TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     final_response_preview: Mapped[str | None] = mapped_column(String, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB(astext_type=String()), nullable=False, default=dict
-    )
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB(astext_type=String()), nullable=False, default=dict)

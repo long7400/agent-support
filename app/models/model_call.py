@@ -30,15 +30,9 @@ class ModelCall(TimestampMixin, Base):
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    agent_run_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("agent_runs.id"), nullable=False
-    )
-    tenant_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
-    )
-    step_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("agent_run_steps.id"), nullable=False
-    )
+    agent_run_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("agent_runs.id"), nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    step_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("agent_run_steps.id"), nullable=False)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     model_name: Mapped[str] = mapped_column(String, nullable=False)
     prompt_version: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -46,6 +40,4 @@ class ModelCall(TimestampMixin, Base):
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String, nullable=False, default="completed")
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB(astext_type=String()), nullable=False, default=dict
-    )
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB(astext_type=String()), nullable=False, default=dict)

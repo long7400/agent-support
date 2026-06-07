@@ -47,8 +47,12 @@ class TestFakeToolDenial:
         async def _run() -> None:
             state = _make_state()
             context: HarnessContext = HarnessContext(
-                trace_id="test", tenant_id=uuid4(), deadline_ms=10000,
-                run_mode="shadow", services={}, redaction_policy={},
+                trace_id="test",
+                tenant_id=uuid4(),
+                deadline_ms=10000,
+                run_mode="shadow",
+                services={},
+                redaction_policy={},
             )
             registry = FakeCapabilityRegistry()
             result = await registry.execute(state, context, "fake_search", {"query": "docs"})
@@ -64,8 +68,12 @@ class TestFakeToolDenial:
             state = _make_state()
             state["available_capabilities"] = ["fake_search"]  # disallowed_tool NOT in allowed
             context: HarnessContext = HarnessContext(
-                trace_id="test", tenant_id=uuid4(), deadline_ms=10000,
-                run_mode="shadow", services={}, redaction_policy={},
+                trace_id="test",
+                tenant_id=uuid4(),
+                deadline_ms=10000,
+                run_mode="shadow",
+                services={},
+                redaction_policy={},
             )
             guard = ToolGuardMiddleware()
 
@@ -145,8 +153,12 @@ class TestFakeToolDenial:
             state = _make_state()
             state["available_capabilities"] = ["fake_search"]
             context: HarnessContext = HarnessContext(
-                trace_id="test", tenant_id=uuid4(), deadline_ms=10000,
-                run_mode="shadow", services={}, redaction_policy={},
+                trace_id="test",
+                tenant_id=uuid4(),
+                deadline_ms=10000,
+                run_mode="shadow",
+                services={},
+                redaction_policy={},
             )
             guard = ToolGuardMiddleware()
 

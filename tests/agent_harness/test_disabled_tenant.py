@@ -70,6 +70,7 @@ def test_suspended_tenant_raises_error():
 
 def test_active_tenant_passes_through():
     """Active tenant must pass through TenantContext without error."""
+
     # Create a custom profile loader that returns the expected profile
     async def mock_profile_loader(tenant_id):
         return {
@@ -82,7 +83,7 @@ def test_active_tenant_passes_through():
             "enabled_platforms": ["telegram", "discord"],
             "allowed_capabilities": ["rag.search"],
         }
-    
+
     middleware = TenantContextMiddleware(profile_loader=mock_profile_loader)
 
     state = {
@@ -158,6 +159,7 @@ def test_tenant_context_mutates_state():
     The middleware modifies the state dict directly for efficiency.
     This is acceptable because the state is created fresh for each run.
     """
+
     # Create a custom profile loader
     async def mock_profile_loader(tenant_id):
         return {
@@ -168,7 +170,7 @@ def test_tenant_context_mutates_state():
             "enabled_platforms": ["telegram"],
             "allowed_capabilities": ["rag.search"],
         }
-    
+
     middleware = TenantContextMiddleware(profile_loader=mock_profile_loader)
 
     state = {

@@ -55,34 +55,41 @@ class LangGraphAgent:
                 break
 
         synthetic_tenant_id = uuid5(NAMESPACE_URL, session_id)
-        event = cast(TrustedRuntimeEvent, {
-            "event_id": uuid4(),
-            "tenant_id": synthetic_tenant_id,
-            "chat_event_id": uuid4(),
-            "platform": "telegram",
-            "channel_id": synthetic_tenant_id,
-            "thread_id": None,
-            "user_id_hash": user_id or "",
-            "message_type": "text",
-            "text_preview": last_user_msg,
-            "metadata": {},
-        })
+        event = cast(
+            TrustedRuntimeEvent,
+            {
+                "event_id": uuid4(),
+                "tenant_id": synthetic_tenant_id,
+                "chat_event_id": uuid4(),
+                "platform": "telegram",
+                "channel_id": synthetic_tenant_id,
+                "thread_id": None,
+                "user_id_hash": user_id or "",
+                "message_type": "text",
+                "text_preview": last_user_msg,
+                "metadata": {},
+            },
+        )
 
-        profile = cast(TenantHarnessProfile, {
-            "tenant_id": synthetic_tenant_id,
-            "config_version": 1,
-            "policy_version": 1,
-            "enabled_platforms": ["telegram", "discord"],
-            "allowed_capabilities": [],
-            "model_policy": {},
-            "memory_policy": {},
-            "moderation_policy": {},
-            "escalation_policy": {},
-            "budgets": {},
-        })
+        profile = cast(
+            TenantHarnessProfile,
+            {
+                "tenant_id": synthetic_tenant_id,
+                "config_version": 1,
+                "policy_version": 1,
+                "enabled_platforms": ["telegram", "discord"],
+                "allowed_capabilities": [],
+                "model_policy": {},
+                "memory_policy": {},
+                "moderation_policy": {},
+                "escalation_policy": {},
+                "budgets": {},
+            },
+        )
 
         result = await self._runtime.run(event, profile)
         from app.schemas.chat import Message
+
         return [Message(role="assistant", content=result.get("response_text", "Fake response."))]
 
     async def create_graph(self) -> None:

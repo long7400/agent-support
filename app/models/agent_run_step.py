@@ -36,12 +36,8 @@ class AgentRunStep(TimestampMixin, Base):
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    agent_run_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("agent_runs.id"), nullable=False
-    )
-    tenant_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
-    )
+    agent_run_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("agent_runs.id"), nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     step_order: Mapped[int] = mapped_column(Integer, nullable=False)
     step_type: Mapped[str] = mapped_column(String, nullable=False)
     step_name: Mapped[str] = mapped_column(String, nullable=False)
@@ -50,6 +46,4 @@ class AgentRunStep(TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     redacted_summary: Mapped[str | None] = mapped_column(String, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB(astext_type=String()), nullable=False, default=dict
-    )
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB(astext_type=String()), nullable=False, default=dict)
