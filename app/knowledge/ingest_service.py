@@ -10,7 +10,13 @@ from uuid import UUID, uuid4
 from app.knowledge.chunker import chunk_document
 from app.knowledge.markdown_parser import extract_markdown_text, extract_markdown_zip
 from app.knowledge.metadata import enrich_chunk
-from app.vector.fake import FakeEmbeddingProvider, FakeKeywordSearchProvider, FakeVectorSearchProvider, _IndexedKeyword, _IndexedVector
+from app.vector.fake import (
+    FakeEmbeddingProvider,
+    FakeKeywordSearchProvider,
+    FakeVectorSearchProvider,
+    _IndexedKeyword,
+    _IndexedVector,
+)
 
 
 @dataclass
@@ -160,15 +166,42 @@ class InMemoryKnowledgeIngestService:
         """Return a keyword provider over the current in-memory index."""
         return FakeKeywordSearchProvider(self.keyword_index)
 
-    def _replace_version_indexes(self, job: KnowledgeSyncJobRecord, chunks: list[dict[str, Any]], embeddings: list[list[float]], *, active: bool) -> None:
+    def _replace_version_indexes(
+        self, job: KnowledgeSyncJobRecord, chunks: list[dict[str, Any]], embeddings: list[list[float]], *, active: bool
+    ) -> None:
         self.vector_index = [item for item in self.vector_index if item.source_version_id != job.source_version_id]
         self.keyword_index = [item for item in self.keyword_index if item.source_version_id != job.source_version_id]
         for chunk, embedding in zip(chunks, embeddings, strict=True):
             chunk_id = UUID(str(chunk["chunk_id"]))
             payload = dict(chunk)
             payload["is_active"] = active
-            self.vector_index.append(_IndexedVector(chunk_id, job.tenant_id, embedding, chunk["text"], chunk["visibility"], chunk.get("locale"), active, job.source_version_id, job.source_id, payload))
-            self.keyword_index.append(_IndexedKeyword(chunk_id, job.tenant_id, chunk["lexical_text"], chunk["visibility"], chunk.get("locale"), active, job.source_version_id, job.source_id, payload))
+            self.vector_index.append(
+                _IndexedVector(
+                    chunk_id,
+                    job.tenant_id,
+                    embedding,
+                    chunk["text"],
+                    chunk["visibility"],
+                    chunk.get("locale"),
+                    active,
+                    job.source_version_id,
+                    job.source_id,
+                    payload,
+                )
+            )
+            self.keyword_index.append(
+                _IndexedKeyword(
+                    chunk_id,
+                    job.tenant_id,
+                    chunk["lexical_text"],
+                    chunk["visibility"],
+                    chunk.get("locale"),
+                    active,
+                    job.source_version_id,
+                    job.source_id,
+                    payload,
+                )
+            )
 
     def _activate_version(self, tenant_id: UUID, source_id: UUID, active_version_id: UUID) -> None:
         for version in self.versions.values():

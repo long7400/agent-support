@@ -83,5 +83,9 @@ class RagSearchCapability:
             "retrieval_mode": mode.value,
             "snippets": snippets,
             "citations": citations,
-            "audit": {"tenant_id": str(tenant_id), "candidate_count": len(candidates), "returned_count": len(snippets)},
+            "audit": {
+                "tenant_id": str(tenant_id),
+                "candidate_count": len(candidates),
+                "returned_count": len(snippets),
+            },
         }
