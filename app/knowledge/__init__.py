@@ -12,7 +12,9 @@ from app.knowledge.cache import (
 from app.knowledge.contracts import QueryRewriter
 from app.knowledge.query_rewrite import DeterministicQueryRewriter
 from app.knowledge.rerank import RerankedResult, Reranker
-from app.knowledge.retrieval import HybridRetriever, RetrievalMode, RetrievalQuery
+from app.knowledge.retrieval import ReciprocalRankFusionHybridRetriever
+from app.vector.contracts import HybridRetriever
+from app.vector.models import RetrievalMode, RetrievalQuery
 
 __all__ = [
     "QueryRewriter",
@@ -20,6 +22,7 @@ __all__ = [
     "build_embedding_cache_key",
     "build_retrieval_cache_key",
     "HybridRetriever",
+    "ReciprocalRankFusionHybridRetriever",
     "RetrievalMode",
     "RetrievalQuery",
     "Reranker",

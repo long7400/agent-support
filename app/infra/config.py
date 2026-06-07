@@ -169,6 +169,10 @@ class Settings:
 
         # Tenant platform infrastructure
         self.QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
+        self.QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "knowledge_chunks")
+        self.QDRANT_VECTOR_SIZE = int(os.getenv("QDRANT_VECTOR_SIZE", "384"))
+        self.QDRANT_BATCH_SIZE = int(os.getenv("QDRANT_BATCH_SIZE", "64"))
+        self.QDRANT_TOP_K_LIMIT = int(os.getenv("QDRANT_TOP_K_LIMIT", "50"))
 
         # Worker Configuration
         self.WORKER_ROLE = os.getenv("WORKER_ROLE", "runtime")
