@@ -14,6 +14,7 @@ from app.knowledge.retrieval import ReciprocalRankFusionHybridRetriever
 
 pytestmark = pytest.mark.anyio
 
+
 @pytest.fixture
 def anyio_backend() -> str:
     """Run anyio tests on asyncio only because trio is not installed."""

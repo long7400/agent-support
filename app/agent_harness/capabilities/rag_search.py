@@ -52,16 +52,22 @@ class RagSearchCapability:
             return {"status": "refused", "refusal_reason": "missing_tenant", "snippets": [], "citations": []}
         query = str(args.get("query", "")).strip()
         if not query:
-            record_rag_observability_event("rag.search.refused", tenant_id=str(tenant_id), refusal_reason="empty_query", status="refused")
+            record_rag_observability_event(
+                "rag.search.refused", tenant_id=str(tenant_id), refusal_reason="empty_query", status="refused"
+            )
             return {"status": "refused", "refusal_reason": "empty_query", "snippets": [], "citations": []}
         if args.get("retrieval_denied") is True:
-            record_rag_observability_event("rag.search.refused", tenant_id=str(tenant_id), refusal_reason="retrieval_denied", status="refused")
+            record_rag_observability_event(
+                "rag.search.refused", tenant_id=str(tenant_id), refusal_reason="retrieval_denied", status="refused"
+            )
             return {"status": "refused", "refusal_reason": "retrieval_denied", "snippets": [], "citations": []}
         final_top_k = _bounded_int(args.get("final_top_k", 5), lower=1, upper=MAX_FINAL_TOP_K)
         candidate_top_k = _bounded_int(args.get("candidate_top_k", 50), lower=1, upper=100)
         min_score = _float_arg(args.get("min_score", 0.0))
         if final_top_k is None or candidate_top_k is None or min_score is None:
-            record_rag_observability_event("rag.search.refused", tenant_id=str(tenant_id), refusal_reason="invalid_numeric_arg", status="refused")
+            record_rag_observability_event(
+                "rag.search.refused", tenant_id=str(tenant_id), refusal_reason="invalid_numeric_arg", status="refused"
+            )
             return NUMERIC_ARG_REFUSAL.copy()
         visibility = args.get("visibility") or ["public"]
         source_allowlist = [UUID(str(v)) for v in args.get("source_allowlist", [])]

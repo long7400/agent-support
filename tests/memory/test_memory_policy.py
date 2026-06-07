@@ -47,9 +47,20 @@ def run(coro: Any) -> Any:
 def test_memory_retrieval_disabled_denies_without_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     """Disabled memory retrieval fails closed before backend access."""
     monkeypatch.setattr(settings, "LONG_TERM_MEMORY_ENABLED", False)
-    backend = FakeMemoryBackend([
-        {"memory": "should not leak", "metadata": {"tenant_id": "t1", "user_id": "u1", "scope": "support", "visibility": "private", "active": True}}
-    ])
+    backend = FakeMemoryBackend(
+        [
+            {
+                "memory": "should not leak",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u1",
+                    "scope": "support",
+                    "visibility": "private",
+                    "active": True,
+                },
+            }
+        ]
+    )
     service = FakeMemoryService(backend)
 
     result = run(service.search("u1", "hello", tenant_id="t1", scope="support", visibility=["private"]))
@@ -60,7 +71,12 @@ def test_memory_retrieval_disabled_denies_without_backend(monkeypatch: pytest.Mo
 
 @pytest.mark.parametrize(
     ("tenant_id", "user_id", "scope", "visibility"),
-    [(None, "u1", "support", ["private"]), ("t1", None, "support", ["private"]), ("t1", "u1", None, ["private"]), ("t1", "u1", "support", [])],
+    [
+        (None, "u1", "support", ["private"]),
+        ("t1", None, "support", ["private"]),
+        ("t1", "u1", None, ["private"]),
+        ("t1", "u1", "support", []),
+    ],
 )
 def test_memory_retrieval_missing_policy_context_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
@@ -83,14 +99,70 @@ def test_memory_retrieval_missing_policy_context_fails_closed(
 def test_memory_retrieval_filters_tenant_user_scope_visibility_and_active(monkeypatch: pytest.MonkeyPatch) -> None:
     """Only fully policy-matching active results are returned."""
     monkeypatch.setattr(settings, "LONG_TERM_MEMORY_ENABLED", True)
-    backend = FakeMemoryBackend([
-        {"memory": "allowed", "metadata": {"tenant_id": "t1", "user_id": "u1", "scope": "support", "visibility": "private", "active": True}},
-        {"memory": "wrong tenant", "metadata": {"tenant_id": "t2", "user_id": "u1", "scope": "support", "visibility": "private", "active": True}},
-        {"memory": "wrong user", "metadata": {"tenant_id": "t1", "user_id": "u2", "scope": "support", "visibility": "private", "active": True}},
-        {"memory": "wrong scope", "metadata": {"tenant_id": "t1", "user_id": "u1", "scope": "sales", "visibility": "private", "active": True}},
-        {"memory": "wrong visibility", "metadata": {"tenant_id": "t1", "user_id": "u1", "scope": "support", "visibility": "public", "active": True}},
-        {"memory": "inactive", "metadata": {"tenant_id": "t1", "user_id": "u1", "scope": "support", "visibility": "private", "active": False}},
-    ])
+    backend = FakeMemoryBackend(
+        [
+            {
+                "memory": "allowed",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u1",
+                    "scope": "support",
+                    "visibility": "private",
+                    "active": True,
+                },
+            },
+            {
+                "memory": "wrong tenant",
+                "metadata": {
+                    "tenant_id": "t2",
+                    "user_id": "u1",
+                    "scope": "support",
+                    "visibility": "private",
+                    "active": True,
+                },
+            },
+            {
+                "memory": "wrong user",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u2",
+                    "scope": "support",
+                    "visibility": "private",
+                    "active": True,
+                },
+            },
+            {
+                "memory": "wrong scope",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u1",
+                    "scope": "sales",
+                    "visibility": "private",
+                    "active": True,
+                },
+            },
+            {
+                "memory": "wrong visibility",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u1",
+                    "scope": "support",
+                    "visibility": "public",
+                    "active": True,
+                },
+            },
+            {
+                "memory": "inactive",
+                "metadata": {
+                    "tenant_id": "t1",
+                    "user_id": "u1",
+                    "scope": "support",
+                    "visibility": "private",
+                    "active": False,
+                },
+            },
+        ]
+    )
     service = FakeMemoryService(backend)
 
     result = run(service.search("u1", "hello", tenant_id="t1", scope="support", visibility=["private"]))

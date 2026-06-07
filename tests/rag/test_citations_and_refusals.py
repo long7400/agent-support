@@ -74,6 +74,7 @@ async def test_rag_search_refuses_missing_empty_denied_and_low_confidence():
     assert denied["refusal_reason"] == "retrieval_denied"
     assert low["refusal_reason"] == "below_threshold"
 
+
 @pytest.mark.anyio
 async def test_rag_search_refuses_no_results_before_reranking():
     capability = RagSearchCapability(StubRetriever([]))

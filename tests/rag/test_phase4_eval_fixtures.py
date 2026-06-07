@@ -11,13 +11,16 @@ from app.agent_harness.capabilities.rag_search import RagSearchCapability
 from app.knowledge.ingest_service import InMemoryKnowledgeIngestService
 from app.knowledge.retrieval import ReciprocalRankFusionHybridRetriever
 
+
 @pytest.fixture
 def anyio_backend() -> str:
     """Run anyio tests on asyncio only because trio is not installed."""
     return "asyncio"
 
 
-async def _capability_with_source(tenant_id, source_id, text: str) -> tuple[InMemoryKnowledgeIngestService, RagSearchCapability]:
+async def _capability_with_source(
+    tenant_id, source_id, text: str
+) -> tuple[InMemoryKnowledgeIngestService, RagSearchCapability]:
     service = InMemoryKnowledgeIngestService()
     job = service.create_job(
         tenant_id=tenant_id,
@@ -90,7 +93,9 @@ async def test_cross_tenant_isolation_fixture() -> None:
     tenant_a = uuid4()
     tenant_b = uuid4()
     source_id = uuid4()
-    service, _ = await _capability_with_source(tenant_a, source_id, "# Secret\n\nTenant A launch name is Falcon Cedar.")
+    service, _ = await _capability_with_source(
+        tenant_a, source_id, "# Secret\n\nTenant A launch name is Falcon Cedar."
+    )
     retriever = ReciprocalRankFusionHybridRetriever(service.vector_provider(), service.keyword_provider())
     capability = RagSearchCapability(retriever, embedding_provider=service.embedding_provider)
 

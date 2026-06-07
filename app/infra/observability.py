@@ -35,6 +35,7 @@ _RAG_METADATA_KEYS = {
     "vectors_upserted",
 }
 
+
 def _safe_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     safe: dict[str, Any] = {}
     for key, value in metadata.items():
@@ -42,15 +43,18 @@ def _safe_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
             safe[key] = value
     return safe
 
+
 def record_rag_observability_event(name: str, **metadata: Any) -> None:
     """Record deterministic RAG metadata without source/query text."""
     safe = _safe_metadata(metadata)
     _RAG_OBSERVABILITY_EVENTS.append({"name": name, "metadata": deepcopy(safe)})
     logger.info(name.replace(".", "_"), **safe)
 
+
 def get_rag_observability_events() -> list[dict[str, Any]]:
     """Return a copy of captured RAG observability events for tests."""
     return deepcopy(_RAG_OBSERVABILITY_EVENTS)
+
 
 def clear_rag_observability_events() -> None:
     """Clear captured RAG observability events."""

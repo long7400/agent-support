@@ -84,7 +84,9 @@ class MemoryService:
         if policy is None or not settings.LONG_TERM_MEMORY_ENABLED:
             return ""
         try:
-            key = cache_key("memory", policy.tenant_id, policy.user_id, policy.scope, ",".join(policy.visibility), query)
+            key = cache_key(
+                "memory", policy.tenant_id, policy.user_id, policy.scope, ",".join(policy.visibility), query
+            )
             cached = await cache_service.get(key)
             if cached is not None:
                 logger.debug("memory_search_cache_hit", user_id=policy.user_id, tenant_id=policy.tenant_id)
@@ -101,7 +103,9 @@ class MemoryService:
 
             return result
         except Exception as e:
-            logger.error("failed_to_get_relevant_memory", error=str(e), user_id=user_id, tenant_id=tenant_id, query=query)
+            logger.error(
+                "failed_to_get_relevant_memory", error=str(e), user_id=user_id, tenant_id=tenant_id, query=query
+            )
             return ""
 
     async def add(self, user_id: str | None, messages: list[dict], metadata: dict | None = None) -> None:
