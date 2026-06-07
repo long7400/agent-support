@@ -200,9 +200,7 @@ class TestFakeVectorSearchProvider:
         ]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(
-            provider.search([0.1, 0.2, 0.3], tenant_id=tid, visibility=["public"])
-        )
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid, visibility=["public"]))
         assert {r.chunk_id for r in results} == {public_chunk}
 
     def test_active_only_filter_respected(self) -> None:
@@ -241,9 +239,7 @@ class TestFakeVectorSearchProvider:
         ]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(
-            provider.search([0.1, 0.2, 0.3], tenant_id=tid, locale="en")
-        )
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid, locale="en"))
         assert {r.chunk_id for r in results} == {en_chunk}
 
     def test_source_allowlist_filter_respected(self) -> None:
@@ -328,10 +324,7 @@ class TestFakeKeywordSearchProvider:
     def test_results_bounded_by_top_k(self) -> None:
         """Keyword search respects candidate_top_k."""
         tid = uuid4()
-        index = [
-            _make_keyword_item(chunk_id=uuid4(), tenant_id=tid, text="hello world")
-            for _ in range(10)
-        ]
+        index = [_make_keyword_item(chunk_id=uuid4(), tenant_id=tid, text="hello world") for _ in range(10)]
         provider = FakeKeywordSearchProvider(index)
 
         results = asyncio_run(provider.search("hello", tenant_id=tid, candidate_top_k=3))
@@ -350,9 +343,7 @@ class TestFakeKeywordSearchProvider:
         ]
         provider = FakeKeywordSearchProvider(index)
 
-        results = asyncio_run(
-            provider.search("hello", tenant_id=tid, source_allowlist=[allowed_source])
-        )
+        results = asyncio_run(provider.search("hello", tenant_id=tid, source_allowlist=[allowed_source]))
         assert {r.chunk_id for r in results} == {allowed_chunk}
 
 
@@ -581,9 +572,7 @@ class TestTenantFailClosed:
             provider = FakeKeywordSearchProvider()
             coro = provider.search("hello", tenant_id=None)  # type: ignore[arg-type]
         else:
-            hybrid = FakeHybridRetriever(
-                FakeVectorSearchProvider(), FakeKeywordSearchProvider()
-            )
+            hybrid = FakeHybridRetriever(FakeVectorSearchProvider(), FakeKeywordSearchProvider())
             coro = hybrid.search("hello", [0.1], tenant_id=None)  # type: ignore[arg-type]
 
         with pytest.raises(ValueError, match="tenant_id"):
@@ -603,9 +592,7 @@ class TestTenantFailClosed:
             provider = FakeKeywordSearchProvider()
             coro = provider.search("hello", tenant_id=zero)
         else:
-            hybrid = FakeHybridRetriever(
-                FakeVectorSearchProvider(), FakeKeywordSearchProvider()
-            )
+            hybrid = FakeHybridRetriever(FakeVectorSearchProvider(), FakeKeywordSearchProvider())
             coro = hybrid.search("hello", [0.1], tenant_id=zero)
 
         with pytest.raises(ValueError, match="tenant_id"):

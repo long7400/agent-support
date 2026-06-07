@@ -24,9 +24,7 @@ class KnowledgeSyncJob(TimestampMixin, Base):
             "status IN ('queued','running','succeeded','failed','cancelled')",
             name="ck_knowledge_sync_jobs_status",
         ),
-        UniqueConstraint(
-            "tenant_id", "idempotency_key", name="uq_knowledge_sync_jobs_tenant_idempotency"
-        ),
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_knowledge_sync_jobs_tenant_idempotency"),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

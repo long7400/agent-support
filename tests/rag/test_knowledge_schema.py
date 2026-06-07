@@ -4,6 +4,7 @@ import importlib
 
 import pytest
 from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeMeta
 
@@ -56,14 +57,17 @@ def test_metadata_contains_all_knowledge_tables() -> None:
 # ── model imports are loadable ─────────────────────────────────────────
 
 
-@pytest.mark.parametrize("module_path", [
-    "app.models.knowledge_source",
-    "app.models.knowledge_source_version",
-    "app.models.knowledge_document",
-    "app.models.knowledge_chunk",
-    "app.models.knowledge_sync_job",
-    "app.models.knowledge_ingest_audit",
-])
+@pytest.mark.parametrize(
+    "module_path",
+    [
+        "app.models.knowledge_source",
+        "app.models.knowledge_source_version",
+        "app.models.knowledge_document",
+        "app.models.knowledge_chunk",
+        "app.models.knowledge_sync_job",
+        "app.models.knowledge_ingest_audit",
+    ],
+)
 def test_model_module_imports_cleanly(module_path: str) -> None:
     """Each knowledge model module imports without error."""
     mod = importlib.import_module(module_path)
@@ -80,9 +84,17 @@ class TestKnowledgeSource:
         """KnowledgeSource has expected columns."""
         cols = _get_columns(KnowledgeSource)
         expected = {
-            "id", "tenant_id", "name", "slug", "source_type", "status",
-            "default_visibility", "locale", "metadata_json",
-            "created_by_actor_type", "created_by_actor_id",
+            "id",
+            "tenant_id",
+            "name",
+            "slug",
+            "source_type",
+            "status",
+            "default_visibility",
+            "locale",
+            "metadata_json",
+            "created_by_actor_type",
+            "created_by_actor_id",
             "created_at",
         }
         assert cols == expected, f"KnowledgeSource columns mismatch: {cols ^ expected}"
@@ -122,10 +134,7 @@ class TestKnowledgeSource:
 
     def test_slug_unique_per_tenant(self) -> None:
         """KnowledgeSource slugs are stable tenant-scoped identifiers."""
-        constraints = {
-            c.name for c in KnowledgeSource.__table__.constraints
-            if isinstance(c, UniqueConstraint)
-        }
+        constraints = {c.name for c in KnowledgeSource.__table__.constraints if isinstance(c, UniqueConstraint)}
         assert "uq_knowledge_sources_tenant_slug" in constraints
 
     def test_metadata_is_jsonb(self) -> None:
@@ -143,11 +152,21 @@ class TestKnowledgeSourceVersion:
         """KnowledgeSourceVersion has expected columns."""
         cols = _get_columns(KnowledgeSourceVersion)
         expected = {
-            "id", "tenant_id", "source_id", "version_number", "status",
-            "content_hash", "chunk_count", "document_count",
-            "embedding_model", "embedding_dim", "metadata_json",
-            "activated_at", "tombstoned_at",
-            "created_by_actor_type", "created_by_actor_id",
+            "id",
+            "tenant_id",
+            "source_id",
+            "version_number",
+            "status",
+            "content_hash",
+            "chunk_count",
+            "document_count",
+            "embedding_model",
+            "embedding_dim",
+            "metadata_json",
+            "activated_at",
+            "tombstoned_at",
+            "created_by_actor_type",
+            "created_by_actor_id",
             "created_at",
         }
         assert cols == expected, f"KnowledgeSourceVersion columns mismatch: {cols ^ expected}"
@@ -160,8 +179,14 @@ class TestKnowledgeSourceVersion:
     def test_status_check_values(self) -> None:
         """VERSION_STATUSES matches the check constraint definition."""
         expected = (
-            "parsing", "chunked", "embedded", "indexed", "verified",
-            "active", "tombstoned", "failed",
+            "parsing",
+            "chunked",
+            "embedded",
+            "indexed",
+            "verified",
+            "active",
+            "tombstoned",
+            "failed",
         )
         assert VERSION_STATUSES == expected
 
@@ -201,9 +226,17 @@ class TestKnowledgeDocument:
         """KnowledgeDocument has expected columns."""
         cols = _get_columns(KnowledgeDocument)
         expected = {
-            "id", "tenant_id", "source_id", "source_version_id",
-            "filename", "file_type", "file_size_bytes", "content_hash",
-            "chunk_count", "metadata_json", "created_at",
+            "id",
+            "tenant_id",
+            "source_id",
+            "source_version_id",
+            "filename",
+            "file_type",
+            "file_size_bytes",
+            "content_hash",
+            "chunk_count",
+            "metadata_json",
+            "created_at",
         }
         assert cols == expected, f"KnowledgeDocument columns mismatch: {cols ^ expected}"
 
@@ -238,11 +271,24 @@ class TestKnowledgeChunk:
         """KnowledgeChunk has expected columns."""
         cols = _get_columns(KnowledgeChunk)
         expected = {
-            "id", "tenant_id", "source_id", "source_version_id",
-            "document_id", "chunk_index", "text", "text_hash",
-            "token_count", "section_path", "source_uri", "source_title",
-            "visibility", "locale", "is_active", "lexical_tokens",
-            "metadata_json", "created_at",
+            "id",
+            "tenant_id",
+            "source_id",
+            "source_version_id",
+            "document_id",
+            "chunk_index",
+            "text",
+            "text_hash",
+            "token_count",
+            "section_path",
+            "source_uri",
+            "source_title",
+            "visibility",
+            "locale",
+            "is_active",
+            "lexical_tokens",
+            "metadata_json",
+            "created_at",
         }
         assert cols == expected, f"KnowledgeChunk columns mismatch: {cols ^ expected}"
 
@@ -302,12 +348,20 @@ class TestKnowledgeSyncJob:
         """KnowledgeSyncJob has expected columns."""
         cols = _get_columns(KnowledgeSyncJob)
         expected = {
-            "id", "tenant_id", "source_id", "source_version_id",
-            "status", "idempotency_key",
-            "started_at", "completed_at",
-            "documents_processed", "chunks_embedded",
-            "vectors_upserted", "lexical_indexed",
-            "errors_count", "error_log",
+            "id",
+            "tenant_id",
+            "source_id",
+            "source_version_id",
+            "status",
+            "idempotency_key",
+            "started_at",
+            "completed_at",
+            "documents_processed",
+            "chunks_embedded",
+            "vectors_upserted",
+            "lexical_indexed",
+            "errors_count",
+            "error_log",
             "created_at",
         }
         assert cols == expected, f"KnowledgeSyncJob columns mismatch: {cols ^ expected}"
@@ -324,7 +378,8 @@ class TestKnowledgeSyncJob:
     def test_unique_constraint_tenant_idempotency(self) -> None:
         """Unique constraint on (tenant_id, idempotency_key)."""
         uqs = [
-            c for c in KnowledgeSyncJob.__table__.constraints
+            c
+            for c in KnowledgeSyncJob.__table__.constraints
             if isinstance(c, UniqueConstraint) and set(c.columns.keys()) == {"tenant_id", "idempotency_key"}
         ]
         assert uqs, "Missing UniqueConstraint on (tenant_id, idempotency_key)"
@@ -352,8 +407,14 @@ class TestKnowledgeIngestAudit:
         """KnowledgeIngestAudit has expected columns."""
         cols = _get_columns(KnowledgeIngestAudit)
         expected = {
-            "id", "tenant_id", "source_id", "source_version_id",
-            "job_id", "event_type", "detail_json", "created_at",
+            "id",
+            "tenant_id",
+            "source_id",
+            "source_version_id",
+            "job_id",
+            "event_type",
+            "detail_json",
+            "created_at",
         }
         assert cols == expected, f"KnowledgeIngestAudit columns mismatch: {cols ^ expected}"
 
@@ -386,14 +447,17 @@ def test_alembic_upgrade_and_downgrade() -> None:
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("script_location", "alembic")
 
-    # Upgrade to head (includes our migration)
-    command.upgrade(alembic_cfg, "head")
+    try:
+        # Upgrade to head (includes our migration)
+        command.upgrade(alembic_cfg, "head")
 
-    # Downgrade one step (our migration)
-    command.downgrade(alembic_cfg, "-1")
+        # Downgrade one step (our migration)
+        command.downgrade(alembic_cfg, "-1")
 
-    # Re-upgrade to leave head in place for subsequent tests
-    command.upgrade(alembic_cfg, "head")
+        # Re-upgrade to leave head in place for subsequent tests
+        command.upgrade(alembic_cfg, "head")
+    except OperationalError as exc:
+        pytest.skip(f"Postgres unavailable for Alembic round-trip: {exc}")
 
 
 def test_json_columns_are_jsonb() -> None:

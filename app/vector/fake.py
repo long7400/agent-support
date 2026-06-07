@@ -204,9 +204,7 @@ class FakeVectorSearchProvider:
                 continue
 
             score = _cosine_similarity(query_embedding, item.embedding)
-            candidates.append(
-                VectorResult(chunk_id=item.chunk_id, score=score, payload=item.payload)
-            )
+            candidates.append(VectorResult(chunk_id=item.chunk_id, score=score, payload=item.payload))
 
         candidates.sort(key=lambda r: r.score, reverse=True)
         return candidates[:candidate_top_k]
@@ -272,9 +270,7 @@ class FakeKeywordSearchProvider:
             if query_lower in text_lower:
                 # Score = ratio of characters matched / total length (simple heuristic)
                 score = len(query_lower) / max(len(text_lower), 1)
-                candidates.append(
-                    KeywordResult(chunk_id=item.chunk_id, score=score, payload=item.payload)
-                )
+                candidates.append(KeywordResult(chunk_id=item.chunk_id, score=score, payload=item.payload))
 
         candidates.sort(key=lambda r: r.score, reverse=True)
         return candidates[:candidate_top_k]
@@ -366,10 +362,7 @@ class FakeHybridRetriever:
 
         # Sort by fused score descending
         sorted_chunks = sorted(rrf_scores.items(), key=lambda kv: kv[1][0], reverse=True)
-        return [
-            VectorResult(chunk_id=cid, score=sc, payload=pld)
-            for cid, (sc, pld) in sorted_chunks[:final_top_k]
-        ]
+        return [VectorResult(chunk_id=cid, score=sc, payload=pld) for cid, (sc, pld) in sorted_chunks[:final_top_k]]
 
 
 # ---------------------------------------------------------------------------

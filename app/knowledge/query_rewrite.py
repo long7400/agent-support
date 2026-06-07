@@ -9,7 +9,7 @@ from typing import Pattern
 # Regex that matches identifiers, numbers, and URLs that should never be
 # lowercased.  This preserves case-sensitive tokens while normalising the
 # rest of the query.
-#   - URLs:     https?://... 
+#   - URLs:     https?://...
 #   - Tickers:  $AAPL, $BTC
 #   - IDs:      uuid-like hex, short hex (0x...), common IDs
 #   - Numbers:  integers, decimals, percentages

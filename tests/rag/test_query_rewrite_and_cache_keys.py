@@ -84,9 +84,7 @@ class TestDeterministicQueryRewriter:
     def test_mixed_content(self) -> None:
         """Mixed safe content and preserve tokens works correctly."""
         rewriter = DeterministicQueryRewriter()
-        result = rewriter.rewrite(
-            "  Check $BTC at https://Example.com 123  "
-        )
+        result = rewriter.rewrite("  Check $BTC at https://Example.com 123  ")
         # Leading/trailing trimmed, internal spaces merged, safe content lowered,
         # preserve tokens unchanged
         assert result.startswith("check")
@@ -187,12 +185,8 @@ class TestRetrievalCacheKey:
         sv_a = [uuid4()]
         sv_b = [uuid4()]
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a)
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b)
 
         assert key_a != key_b
 
@@ -200,12 +194,8 @@ class TestRetrievalCacheKey:
         """Different visibility filters produce different keys."""
         tid = uuid4()
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, visibility=["public"]
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, visibility=["private"]
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, visibility=["public"])
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, visibility=["private"])
 
         assert key_a != key_b
 
@@ -213,12 +203,8 @@ class TestRetrievalCacheKey:
         """Different locale filters produce different keys."""
         tid = uuid4()
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, locale="en"
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, locale="vi"
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, locale="en")
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, locale="vi")
 
         assert key_a != key_b
 
@@ -267,12 +253,8 @@ class TestRetrievalCacheKey:
         """Embedding model parameter affects the key."""
         tid = uuid4()
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, embedding_model="model-v1"
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, embedding_model="model-v2"
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, embedding_model="model-v1")
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, embedding_model="model-v2")
 
         assert key_a != key_b
 
@@ -282,12 +264,8 @@ class TestRetrievalCacheKey:
         sv_a = [UUID("00000000-0000-0000-0000-000000000001")]
         sv_b = [UUID("00000000-0000-0000-0000-000000000002")]
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a)
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b)
 
         assert key_a != key_b
 
@@ -322,12 +300,8 @@ class TestCrossTenantCacheKeyUniqueness:
         sv_a = [uuid4()]
         sv_b = [uuid4()]
 
-        key_a = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a
-        )
-        key_b = build_retrieval_cache_key(
-            tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b
-        )
+        key_a = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_a)
+        key_b = build_retrieval_cache_key(tid, "hello", RetrievalMode.hybrid, source_version_ids=sv_b)
 
         assert key_a != key_b, "cache keys must differ across source versions"
 
