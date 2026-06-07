@@ -15,6 +15,12 @@ from app.models.agent_run_step import AgentRunStep  # noqa: F401
 from app.models.audit import AuditEvent  # noqa: F401
 from app.models.base import Base
 from app.models.graph_checkpoint_metadata import GraphCheckpointMetadata  # noqa: F401
+from app.models.knowledge_chunk import KnowledgeChunk  # noqa: F401
+from app.models.knowledge_document import KnowledgeDocument  # noqa: F401
+from app.models.knowledge_ingest_audit import KnowledgeIngestAudit  # noqa: F401
+from app.models.knowledge_source import KnowledgeSource  # noqa: F401
+from app.models.knowledge_source_version import KnowledgeSourceVersion  # noqa: F401
+from app.models.knowledge_sync_job import KnowledgeSyncJob  # noqa: F401
 from app.models.model_call import ModelCall  # noqa: F401
 from app.models.service_principal import ServicePrincipal  # noqa: F401
 from app.models.session import Session  # noqa: F401
