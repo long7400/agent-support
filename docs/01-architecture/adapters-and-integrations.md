@@ -54,7 +54,18 @@ Backend resolve tenant → trusted runtime event:
 }
 ```
 
-Chỉ trusted event này vào graph execution (qua processing_outbox).
+Chỉ trusted event này vào harness execution (qua processing_outbox). The worker claims the trusted runtime event, resumes/creates the LangGraph durable run, and invokes the Core Agent harness described in [Core Agent Design](core-agent-design.md).
+
+## Adapter To Harness Boundary
+
+Adapters remain thin translators. They do not own harness policy, tool permission, RAG, memory, moderation decisions, model selection, or Deep Agent delegation. Those decisions belong to the Core Agent middleware stack and Capability Runtime after tenant resolution.
+
+Handoff rules:
+
+- Only trusted runtime events enter the harness; untrusted adapter payloads never carry authoritative `tenant_id`.
+- Harness output must be a policy-checked response/action envelope before anything is inserted into `delivery_outbox`.
+- Destructive or side-effecting actions require tenant policy, idempotency, audit, and approval gates from Capability Runtime.
+- Platform-specific formatting limits are applied by harness platform middleware and verified again by the delivery adapter before send.
 
 ## Outbound Delivery Envelope
 
@@ -74,7 +85,7 @@ Chỉ trusted event này vào graph execution (qua processing_outbox).
 }
 ```
 
-Rules: platform send sau policy check; destructive action cần moderation policy; idempotency key chống duplicate side effect; delivery result link tới agent run.
+Rules: platform send sau policy-checked harness result; destructive action cần moderation policy plus Capability Runtime approval/audit when required; idempotency key chống duplicate side effect; delivery result link tới agent run.
 
 ## Telegram Strategy (ADR-009: Per-Tenant Bot)
 
@@ -111,7 +122,7 @@ Discord defer Phase 7 NHƯNG adapter contract phải Discord-ready từ Phase 2.
 
 Phase 2 requirement: contract (`AdapterPrincipal`, `NormalizedInboundEvent`, `OutboundDeliveryEnvelope`) verify bằng 1 paper-design Discord mock để tránh Telegram-shape leak vào contract.
 
-Discord must reuse: normalized inbound contract, trusted tenant resolution, agent graph, outbound envelope shape, moderation policy matrix.
+Discord must reuse: normalized inbound contract, trusted tenant resolution, Core Agent harness boundary, outbound envelope shape, moderation policy matrix.
 
 Discord-specific design (Phase 7): gateway vs interactions/webhook mode, message content privileged intent, guild/channel/thread mapping, bot permissions by action type, reconnect/resume, slash commands/admin actions, Discord formatting/length constraints.
 
@@ -147,7 +158,7 @@ Rules: adapter credential ≠ admin credential; credential secret không ở con
    SELECT * FROM processing_outbox
    WHERE status='pending' AND run_after_ts <= now()
    ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 10
-   -> run graph (AsyncPostgresSaver checkpoint)
+   -> run Core Agent harness in LangGraph Durable Runtime (AsyncPostgresSaver checkpoint)
    -> INSERT delivery_outbox + UPDATE outbox status='done'
 5. Delivery sender consume delivery_outbox -> platform send -> mark delivered.
 ```
@@ -181,7 +192,7 @@ Built-in tools first: `rag.search`, `tenant.official_links`, `moderation.propose
 
 External/MCP tools later: `crypto.price`, `web.search`, analytics/reporting, ticketing/CRM.
 
-MCP rules: pin server identity/version trong manifest; filter tool list vs manifest + tenant policy; no token passthrough; credential handles resolve server-side (KMS); remote servers sau network egress controls; side-effecting tools cần idempotency + approval.
+MCP rules: pin server identity/version trong Capability Runtime manifest; filter tool list vs manifest + tenant policy; no token passthrough; credential handles resolve server-side (KMS); remote servers sau network egress controls; side-effecting tools cần idempotency + approval; no arbitrary remote tool discovery.
 
 ## Integration Observability
 
@@ -193,7 +204,7 @@ Không emit: tokens, raw provider credentials, full private chat, full private d
 
 Adapter tests: normalized event validation; no tenant id from body; adapter credential reject missing/wrong/scope mismatch; duplicate message idempotency; outbound ACK after send; send retry không duplicate với idempotency receipt; platform API timeout/error mapping.
 
-Integration tests: 1 Telegram sandbox event → trusted event/agent run/outbound delivery; disabled tenant rejected trước graph/outbound; unknown platform mapping fail closed; moderation enforce không thể without policy.
+Integration tests: 1 Telegram sandbox event -> trusted event/harness run/outbound delivery; disabled tenant rejected trước harness/outbound; unknown platform mapping fail closed; moderation enforce không thể without policy.
 
 ## Resolved Open Questions
 

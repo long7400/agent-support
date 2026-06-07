@@ -56,10 +56,10 @@ Eval suite phải pass threshold trước production (xem [observability-evaluat
 
 | Phase | Eval focus |
 | --- | --- |
-| Phase 3 (graph) | Routing correctness, tenant id immutability, replay determinism (mocked). |
-| Phase 4 (RAG) | Grounded answer, citation, refusal, tenant isolation, stale source. |
-| Phase 5 (tools) | Tool denial, schema validation, missing credential. |
-| Phase 6 (moderation) | Moderation safety, false positive/negative, injection. |
+| Phase 3 (harness) | Middleware order, tenant id immutability, replay determinism with fake model/tool, compatibility wrapper. |
+| Phase 4 (RAG + memory) | Grounded answer, citation, refusal, tenant isolation, stale source, memory visibility filters. |
+| Phase 5 (capabilities) | Capability denial, schema validation, missing credential, source connector allowlist. |
+| Phase 6 (moderation + HITL) | Moderation safety, false positive/negative, injection, interrupt/resume approval. |
 
 ## References
 

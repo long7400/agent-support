@@ -2,7 +2,7 @@
 
 ## Mục đích
 
-Thiết kế Core Agent: LangGraph runtime shape, state contract, node contracts, tool/capability boundary, sub-agent policy, prompt/versioning, replay, human-in-the-loop.
+Thiết kế Core Agent harness runtime: LangGraph durable orchestration, LangChain `create_agent` model/tool loop, middleware control plane, state/context contracts, capability runtime, delegated Deep Agent policy, replay, and human-in-the-loop.
 
 ## Đối tượng đọc
 
@@ -10,31 +10,66 @@ AI engineer, backend engineer, tool/plugin developer, QA, security reviewer, pro
 
 ## Design Summary
 
-Agent Support dùng LangGraph làm top-level Agent Core runtime. Graph là **platform-owned workflow**, không phải free-form autonomous agent, không phải generic chatbot loop. Graph chạy trong **worker** (sau khi outbox claim event), không trong HTTP request path (ADR-003).
+Agent Support dùng **LangGraph Durable Runtime** làm top-level worker orchestration, checkpoint/resume, interrupts, streaming, subgraphs, and deterministic non-agent steps. The normal model/tool loop runs inside a **Harness Runtime** built with LangChain `create_agent`. Product-specific LangChain middleware owns lifecycle controls that used to be embedded in graph nodes or prompts.
 
-Agent Core own đường từ trusted inbound event → replayable run → policy-checked result → audited capability usage → outbound delivery intent.
+Agent Core own đường từ trusted inbound event -> replayable run -> harness invocation -> audited capability usage -> policy-checked result -> outbound delivery intent.
 
-Agent Core PHẢI: hydrate trusted tenant context, classify intent, screen risk, route, call tools chỉ qua permissioned capability boundary, policy-check mọi output, record replay/audit evidence, emit outbound chỉ sau khi checks pass.
+Agent Core PHẢI: hydrate trusted tenant context, expose only permitted capabilities, enforce model/tool/risk/budget policy, policy-check every output, record replay/audit evidence, and emit outbound only after checks pass.
 
-Agent Core KHÔNG own: tenant credential material, raw platform secrets, direct vector DB access từ arbitrary nodes, unchecked remote tool discovery, durable business state ẩn trong scratch memory, destructive moderation từ raw model text.
+Agent Core KHÔNG own: tenant credential material, raw platform secrets, unchecked remote tool discovery, direct vector DB access from arbitrary nodes, durable business state hidden in scratch memory, destructive moderation from raw model text, or unfiltered Deep Agents/tool access.
 
-## Core Agent Responsibilities
+Related decision: [ADR-010 Agent Harness Core](../06-decisions/adr-010-agent-harness-core.md).
 
-| Area | Responsibility |
-| --- | --- |
-| Runtime lifecycle | Create/resume một `agent_run` cho mỗi trusted inbound event. |
-| State | Maintain serializable graph state + checkpoints (AsyncPostgresSaver). |
-| Context hydration | Load tenant status, policy, persona, model budget, source visibility, allowed capabilities. |
-| Routing | Choose support/moderation/onboarding/ops/fallback qua graph edges. |
-| Policy | Enforce final answer/action, citation, moderation, budget, capability rules. |
-| Tool mediation | Request tools chỉ qua capability proxy. |
-| Replay | Persist đủ run/step/model/tool evidence để debug và replay với mocks. |
-| Outbound | Build platform-safe delivery intent sau khi policy pass. |
+## Harness Runtime
 
-## Agent State Contract
+```text
+Platform Adapter
+-> trusted runtime event
+-> processing_outbox worker claim
+-> LangGraph Durable Runtime
+-> harness agent node via LangChain create_agent
+-> product Middleware Stack
+-> Capability Runtime / Tool Proxy
+-> policy-checked response envelope
+-> delivery_outbox
+```
+
+Runtime lifecycle:
+
+```text
+Worker claims processing_outbox event
+-> load trusted runtime event
+-> create/resume LangGraph run/checkpoint
+-> hydrate tenant/platform/run context
+-> invoke create_agent harness node
+   before_agent: tenant/platform/memory/bootstrap
+   before_model: prompt/context/model/budget
+   wrap_model_call: retry/fallback/latency/cost
+   after_model: output/risk/tool-intent policy
+   wrap_tool_call: capability guard/audit/timeout/redaction
+   after_agent: memory write/run summary/metrics
+-> policy-checked final response
+-> response envelope
+-> delivery_outbox
+```
+
+Ownership rules:
+
+| Layer | Owns | Must not own |
+| --- | --- | --- |
+| Adapter | Platform auth, payload normalization, outbound send | Tenant policy, RAG, moderation, tool permission |
+| LangGraph Durable Runtime | Worker execution, checkpoint/resume, interrupts, deterministic graph topology | Large model/tool loop business logic |
+| `create_agent` Harness Runtime | Model/tool loop, middleware execution, thread-aware invocation | Platform delivery side effects |
+| Middleware Stack | Tenant/platform/context/model/tool/risk/HITL/observability controls | Secret material or unchecked durable writes |
+| Capability Runtime | Tool/subagent validation, permission, timeout, approval, audit, redaction | Unfiltered tool discovery or raw model execution |
+| Outbox | Reliable delivery handoff and idempotency | Policy decisions |
+
+LangChain middleware runs inside the compiled LangGraph returned by `create_agent`, so middleware controls are checkpoint-compatible with the durable runtime.
+
+## AgentRunState Contract
 
 ```python
-class AgentState(TypedDict):
+class AgentRunState(TypedDict):
     trace_id: str
     tenant_id: str
     input_event_id: str
@@ -45,127 +80,284 @@ class AgentState(TypedDict):
     message_id: str
     inbound_text_preview: str
     messages: list[dict[str, object]]
-    tenant_config_version: int
-    tenant_policy_version: int
-    model_policy: dict[str, object]
-    allowed_capabilities: list[str]
-    intent: dict[str, object] | None
-    risk: dict[str, object] | None
-    retrieval_context: list[dict[str, object]]
+    tenant_context: dict[str, object]
+    platform_context: dict[str, object]
+    memory_context: dict[str, object]
+    available_capabilities: list[str]
     tool_results: list[dict[str, object]]
-    moderation_decision: dict[str, object] | None
+    policy_decisions: list[dict[str, object]]
+    risk_signals: list[dict[str, object]]
+    budgets: dict[str, object]
     final_response: dict[str, object] | None
     audit_refs: list[str]
 ```
 
-Rules: state serializable; `tenant_id` immutable; raw private data ngoài exported traces; tool outputs trong state bounded + redacted; prompt-visible memory build bởi policy, không dump toàn state.
+Rules: state is serializable and checkpoint-safe; `tenant_id` is immutable after hydration; raw secrets, raw private docs, and full sensitive payloads stay outside exported traces; tool outputs are bounded and redacted before prompt visibility; prompt-visible memory is policy-built, not a dump of full state.
 
-## Core Workflow Contract
+## HarnessContext And TenantHarnessProfile
 
-```text
-trusted inbound event (from processing_outbox)
--> hydrate_context
--> classify_intent
--> risk_screen
--> route
-   -> support_rag_flow
-   -> moderation_shadow_flow
-   -> onboarding_flow
-   -> ops_harness_gate
-   -> safe_fallback
--> policy_check
--> response_builder
--> emit_outbound     # writes delivery_outbox
--> record_run
+`HarnessContext` is per-run runtime context passed to middleware and tools. It may hold service handles, logger/callback handles, request deadlines, and credential handle resolvers, but not decrypted secrets in checkpointed state.
+
+```python
+class HarnessContext(TypedDict):
+    trace_id: str
+    tenant_id: str
+    deadline_ms: int
+    run_mode: Literal["shadow", "propose", "enforce"]
+    services: dict[str, object]
+    redaction_policy: dict[str, object]
 ```
 
-## Required Node Contracts
+`TenantHarnessProfile` is the policy/config snapshot used by middleware:
 
-| Node | Responsibility |
-| --- | --- |
-| `hydrate_context` | Reload tenant status, persona, policy, model budget, source/tool visibility, capability enablement. Set tenant context (SET LOCAL). |
-| `classify_intent` | Classify support/moderation/onboarding/ops/unknown/unsafe. |
-| `risk_screen` | Detect links, scam language, impersonation, toxic/spam patterns. |
-| `route` | Deterministic graph edge selection. |
-| `support_rag_flow` | Retrieve approved context, draft source-backed answer hoặc refusal. |
-| `moderation_shadow_flow` | Record non-destructive risk decision/proposal. |
-| `onboarding_flow` | Render welcome/rules/official links từ tenant config/sources. |
-| `ops_harness_gate` | Decide controlled sub-agent/harness có được phép không. |
-| `policy_check` | Validate answer/action, tool usage, moderation mode, citations, budget. |
-| `response_builder` | Build platform-safe outbound content. |
-| `emit_outbound` | Create delivery envelope → delivery_outbox. |
-| `record_run` | Persist run status, steps, latency, model/tool summaries. |
-
-Mỗi node: explicit input/output state fields, unit tests với fake model/tool, redacted logging (trace id + tenant id), typed errors/policy-denied outcomes, no tenant id mutation.
-
-## Node Failure Semantics
-
-| Failure | Expected behavior |
-| --- | --- |
-| Tenant inactive | Stop trước model/tool/outbound, record denied run. |
-| Classifier/model timeout | Safe fallback hoặc retry trong model budget. |
-| Retrieval empty/stale | Refuse, clarify, hoặc escalate. |
-| Tool denied | Continue safe fallback nếu được; audit denial. |
-| Tool timeout | Typed error; no unbounded retry. |
-| Policy check fail | No outbound send; record refusal/escalation reason. |
-| Outbound build invalid | No platform send; record failed run/action. |
-
-## Replay And Checkpointing
-
-Replay từ product-owned records, không chỉ external traces.
-
-Replay inputs: trusted inbound event, tenant config/policy version, prompt/model versions, allowed capability versions, retrieval fixture/source version, tool call fixtures, model output fixtures.
-
-Replay rules:
-- Unit tests không gọi real LLM/external tools.
-- Replay preserve trusted tenant id.
-- Run records identify graph version + node sequence.
-- Checkpoints support resume; audit/run tables = incident source of truth.
-
-> **Checkpointer + RLS (ADR-002):** AsyncPostgresSaver dùng cùng connection pool nhưng không tự set tenant context. Giải: include `tenant_id` trong checkpoint metadata + filter app-side. Worker crash giữa graph → checkpoint còn → restart pick up cùng event (status=processing + worker heartbeat) → resume từ checkpoint.
-
-## Support RAG Flow
-
-```text
-question
--> decide RAG needed
--> call rag.search capability (qua proxy)
--> receive bounded snippets + citations (Qdrant, tenant-filtered)
--> draft answer từ retrieved context
--> citation + confidence check
--> send answer OR refuse OR clarify OR escalate
+```python
+class TenantHarnessProfile(TypedDict):
+    tenant_id: str
+    config_version: int
+    policy_version: int
+    enabled_platforms: list[str]
+    allowed_capabilities: list[str]
+    model_policy: dict[str, object]
+    memory_policy: dict[str, object]
+    moderation_policy: dict[str, object]
+    escalation_policy: dict[str, object]
+    budgets: dict[str, object]
 ```
 
-Rules: empty/stale/low-confidence không sinh confident answer; source-backed answer có citation metadata; public channel không dùng private/internal source without policy; no direct vector DB call từ arbitrary nodes. Phase 3 có thể dùng stub `rag.search`, nhưng graph đã depend vào capability contract.
+Open implementation choice: profile source may be DB config, manifest files, or a hybrid. Any choice must preserve tenant isolation, versioned audit, and fail-closed behavior.
 
-## Moderation Flow
+## Middleware Stack
 
-```text
-message -> rule checks -> optional classifier -> category/confidence
--> tenant policy matrix -> shadow/proposal/enforcement record
--> optional outbound warning hoặc review queue item
+Ordering: tenant/platform before prompt; memory/context before model; capability registry before tool guard; risk/policy before outbound; observability wraps the full run.
+
+| Middleware | Hook points | Responsibilities | Failure behavior |
+| --- | --- | --- | --- |
+| `TenantContextMiddleware` | `before_agent` | Load tenant status, profile, policy, model budget, capability enablement | Stop before model/tool/outbound if inactive or unresolved |
+| `PlatformContextMiddleware` | `before_agent`, `before_model` | Apply Telegram/Discord constraints, formatting, channel/thread metadata, response limits | Safe fallback or typed platform error |
+| `DynamicPromptMiddleware` | `before_model` | Assemble system/developer context from tenant persona, policy, locale, retrieved memory, source rules | Refuse/escalate if required context is missing |
+| `MemoryMiddleware` | `before_agent`, `after_agent` | Retrieve relevant memory before run and write bounded useful facts after completion | Continue without memory on read miss; audit write denial |
+| `ContextBudgetMiddleware` | `before_model` | Compact messages/tool outputs before context overflow | Typed budget error or safe fallback |
+| `ModelPolicyMiddleware` | `wrap_model_call` | Select model, enforce call limits, retry/fallback, latency/cost/timeout budgets | Fail closed on budget exhaustion |
+| `CapabilityRegistryMiddleware` | `before_model` | Expose only tenant/role/node-allowed tools and delegated agents | Empty/filtered tool list; audit denied exposure |
+| `ToolGuardMiddleware` | `wrap_tool_call` | Validate args, permission, risk, timeout, credential handles, approval, output bounds, redaction, audit | Return typed tool denial/timeout; no hidden side effect |
+| `RiskPolicyMiddleware` | `after_model`, `after_agent` | Evaluate inbound/outbound risk with `shadow`, `propose`, `enforce` modes | No outbound when policy fails |
+| `HumanApprovalMiddleware` | `wrap_tool_call`, graph interrupt | Interrupt before destructive, high-risk, or expensive side-effect capabilities | Pause/resume via checkpoint; no action before approval |
+| `ObservabilityMiddleware` | all wrap/hooks | Emit redacted trace events, latency, model/tool decisions, replay refs | Observability failure must not leak data; critical audit failure stops side effects |
+
+Middleware state updates must be additive and typed. No middleware may mutate `tenant_id` or bypass tenant policy.
+
+## Memory Architecture
+
+Memory is split into three separate concerns so the harness can control prompt context without coupling runtime state to a vector database.
+
+| Memory type | Source of truth | Vector use | Harness owner | Purpose |
+| --- | --- | --- | --- | --- |
+| Short-term memory | LangGraph checkpoint and rolling summaries | No default vector index | `MemoryMiddleware` + `ContextBudgetMiddleware` | Resume, streaming, HITL, recent conversation context |
+| Long-term user memory | Postgres metadata/audit records | Qdrant initially; Turbovec optional later | `MemoryMiddleware` + memory service | User/channel facts, preferences, prior resolutions |
+| Knowledge/RAG memory | Tenant source records and source versions | Qdrant primary | `rag.search` capability | Tenant docs, FAQ, official links, policies, citations |
+| Indexing pipeline | Source connector job state and lineage | Feeds vector backends | Background ingestion workers | Fresh source indexing, not per-request agent memory |
+
+```mermaid
+flowchart TD
+    A[Trusted Runtime Event] --> B[LangGraph Durable Runtime]
+    B --> C[create_agent Harness]
+    C --> D[MemoryMiddleware]
+    C --> E[ContextBudgetMiddleware]
+    C --> F[Capability Runtime]
+
+    subgraph Short[Short-Term Memory]
+        S1[LangGraph Checkpoint<br/>thread messages]
+        S2[Rolling Summary<br/>bounded recent context]
+        S3[Tool Result Refs<br/>bounded and redacted]
+    end
+
+    subgraph Long[Long-Term User Memory]
+        L1[Memory Service]
+        L2[Postgres Metadata<br/>tenant_id user_hash scope TTL consent]
+        L3[Vector Backend<br/>Qdrant now / Turbovec optional]
+    end
+
+    subgraph Rag[Knowledge / RAG Memory]
+        K1[Source Connectors<br/>markdown urls docs]
+        K2[CocoIndex Incremental Pipeline<br/>delta only + lineage]
+        K3[Qdrant Primary Vector Store]
+        K4[Turbovec Optional<br/>hot cache / private / scratch]
+    end
+
+    D --> S1
+    D --> S2
+    D --> L1
+    E --> S2
+    E --> S3
+    F --> R[rag.search Capability]
+    R --> K3
+    K1 --> K2
+    K2 --> K3
+    K2 -. optional .-> K4
+    L1 --> L2
+    L1 --> L3
 ```
 
-Default: shadow cho destructive actions; propose cho uncertain/high-impact; enforce chỉ với explicit policy + idempotency. Review UI Phase 6 = Telegram bot inline keyboard (xem roadmap Phase 6).
+### Short-Term Memory
 
-## Onboarding Flow
+Short-term memory is checkpointed runtime context, not RAG. It contains the exact thread state needed for resume, streaming, and human approval, plus a bounded rolling summary for prompt budget control.
 
-Deterministic-first: tenant welcome template, official links, safety warnings, community rules, locale fallback. LLM optional, không invent links/policy.
+```python
+class ShortTermMemory(TypedDict):
+    thread_id: str
+    recent_messages: list[dict[str, object]]
+    rolling_summary: str | None
+    last_tool_refs: list[str]
+    token_budget_used: int
+```
 
-## Ops And Sub-Agent Harness Boundary
+Rules:
 
-Sub-agents chỉ khi task cần: multi-step investigation, large context offload, report drafting, approval pauses, long-running workflow, isolated specialist instructions. KHÔNG dùng mặc định cho normal FAQ, fast moderation, onboarding.
+- Store in LangGraph checkpoints and product run records, not Qdrant by default.
+- Summarize when token budget thresholds are hit.
+- Keep TTL scoped to thread/session/channel policy.
+- Do not embed every chat message by default.
+- Do not promote a fact to long-term memory until extraction, sensitivity, consent, and TTL policy pass.
 
-Sub-agent rules: manifest-declared, versioned, tenant opt-in, inherit tenant/trace/budget/timeout/visibility/allowed tools, không request tool động, không write durable business state trừ qua audited services, scratch run-scoped disposable.
+### Long-Term User Memory
 
-## Capability Boundary
+Long-term memory stores useful facts and summaries that survive a session: language preference, repeated support issue, prior resolution summary, channel-level context, or safe escalation history. Postgres is the source of truth for metadata, deletion, TTL, sensitivity, and audit. The vector backend is only a retrieval index.
 
-Core Agent không bind all tools trực tiếp. Hỏi capability proxy filtered set theo node/role.
+```python
+class LongTermMemoryRecord(TypedDict):
+    memory_id: str
+    tenant_id: str
+    user_id_hash: str
+    scope: Literal["user", "channel", "tenant"]
+    kind: Literal["preference", "fact", "summary", "risk_signal", "resolution"]
+    text: str
+    embedding_ref: str | None
+    source_event_id: str
+    confidence: float
+    sensitivity: str
+    visibility: list[str]
+    ttl_days: int | None
+    created_at: str
+    last_used_at: str | None
+```
+
+Long-term memory flow:
+
+```mermaid
+sequenceDiagram
+    participant H as create_agent Harness
+    participant M as MemoryMiddleware
+    participant P as Policy / Redaction
+    participant MS as Memory Service
+    participant PG as Postgres Metadata
+    participant V as Vector Backend
+
+    H->>M: before_agent
+    M->>MS: search relevant memories tenant_id + user_hash + scope
+    MS->>PG: load allowed memory ids + metadata filters
+    MS->>V: semantic search within allowed ids
+    V-->>MS: candidate memory hits
+    MS->>P: sensitivity and visibility filter
+    P-->>M: redacted memory_context
+    M-->>H: attach to AgentRunState.memory_context
+
+    H->>M: after_agent
+    M->>P: extract candidate facts and classify sensitivity
+    P-->>MS: approved bounded memories only
+    MS->>PG: write source-of-truth record and audit
+    MS->>V: upsert embedding if policy allows
+```
+
+### Knowledge / RAG Memory
+
+Knowledge memory is tenant-owned source material: Markdown/FAQ uploads, approved URLs, docs sites, official links, and policy text. It is accessed through `rag.search` and never by direct vector DB calls from model code.
+
+Rules:
+
+- Qdrant remains the primary vector store for RAG in the default deployment.
+- Every chunk carries `tenant_id`, source id, source version, visibility, hash, and citation metadata.
+- Retrieval must filter by tenant, source visibility, platform/channel policy, and freshness.
+- Empty, stale, or low-confidence retrieval causes refusal, clarification, or escalation.
+- Raw private source text is not exported into traces; prompt-visible snippets are bounded and cited.
+
+### CocoIndex Role
+
+CocoIndex is an optional incremental indexing engine for source freshness. It should run in background ingestion jobs and feed vector stores; the per-request harness should not call CocoIndex directly.
+
+```mermaid
+flowchart LR
+    A[Tenant Source Change] --> B[CocoIndex Flow]
+    B --> C[Delta Detection]
+    C --> D[Chunk / Transform Changed Records]
+    D --> E[Embedding Service]
+    E --> F[Qdrant Upsert / Delete]
+    D --> G[Postgres Lineage<br/>source_version chunk_hash citation]
+    F --> H[rag.search Capability]
+    G --> H
+```
+
+Use CocoIndex for Markdown/docs/URL source indexing after the base RAG path is stable. It provides delta-only reindexing and lineage, but it is not the memory source of truth and is not required for the first harness code spike.
+
+### Turbovec Role
+
+Turbovec is an optional vector backend or cache, not the default replacement for Qdrant. It is useful where local latency, memory footprint, or private/air-gapped deployment matters.
+
+Potential uses:
+
+- Hot tenant cache for active docs while Qdrant remains source of truth.
+- Private deployment profile where managed/vector service footprint must be minimized.
+- Delegated Deep Agent scratch index for a bounded report bundle or investigation workspace.
+- Allowlist dense search after SQL/Postgres selects ACL-safe candidate ids.
+
+Turbovec adoption requires a spike for durability, concurrent writes, backup/restore, multi-worker behavior, filtering semantics, and recall/latency against Qdrant.
+
+### Vector Backend Strategy
+
+Expose vector search behind an internal interface so Qdrant, Turbovec, or a hybrid backend can be changed without changing harness middleware or capabilities.
+
+```python
+class VectorIndex(Protocol):
+    async def upsert(self, records: list[VectorRecord]) -> None: ...
+    async def delete(self, ids: list[str], tenant_id: str) -> None: ...
+    async def search(
+        self,
+        tenant_id: str,
+        query_embedding: list[float],
+        top_k: int,
+        filters: dict[str, object],
+        allowlist: list[str] | None = None,
+    ) -> list[VectorHit]: ...
+```
+
+Implementations:
+
+- `QdrantVectorIndex`: default primary RAG and long-term memory embedding index.
+- `TurbovecVectorIndex`: optional local/private/hot-cache backend after benchmark approval.
+- `HybridVectorIndex`: SQL/BM25/ACL candidate selection followed by dense vector search.
+
+### Memory Policy And Privacy Rules
+
+- Tenant policy decides which memory types are enabled.
+- User/channel memory requires bounded extraction, sensitivity classification, TTL, and deletion support.
+- Memory retrieval always filters by `tenant_id`, `user_id_hash` or scope, visibility, and platform/channel policy.
+- Memory writes must reference `source_event_id` and produce audit records.
+- The model sees redacted summaries/snippets, not raw memory tables or unrestricted source documents.
+- Deleting a tenant/user/source must remove Postgres records and corresponding vector entries.
+
+
+## Capability Runtime
+
+Core Agent does not bind all tools directly to the model. The harness asks Capability Runtime for a filtered set and executes through one interface:
+
+```python
+CapabilityRuntime.execute(name: str, input: dict, context: HarnessContext) -> dict
+```
 
 Runtime predicate:
+
 ```text
 tenant active
-and plugin/capability enabled
+and capability enabled
 and agent role allowed
 and risk level allowed
 and input schema valid
@@ -175,114 +367,159 @@ and credential handle available when required
 and approval gate satisfied when required
 ```
 
-## Capability Manifest Example
-
-```yaml
-schema_version: "1"
-plugin_name: "support_core"
-version: "0.1.0"
-owner: "platform"
-capabilities:
-  - name: "rag.search"
-    type: "tool"
-    risk_level: "read_sensitive"
-    input_schema_ref: "schemas/rag.search.input.json"
-    output_schema_ref: "schemas/rag.search.output.json"
-    allowed_agent_roles: ["support"]
-    default_timeout_ms: 3000
-    max_timeout_ms: 8000
-    retry_policy: "read_idempotent"
-    audit_event: "tool.rag.search"
-    implementation:
-      kind: "built_in"
-      ref: "rag_search"
-  - name: "support-investigator"
-    type: "sub_agent"
-    risk_level: "read_sensitive"
-    allowed_tools: ["rag.search"]
-    max_steps: 6
-    timeout_ms: 15000
-    prompt_version: "support-investigator@0.1.0"
-config_schema_ref: "schemas/config.json"
-secret_refs: []
-tests:
-  contract_fixtures:
-    - "tests/contracts/rag.search.json"
-```
-
-## Tool Execution Contract
+Execution flow:
 
 ```text
-graph requests capability
--> normalize name
+normalize name
 -> load manifest + tenant enablement
 -> verify role, risk, visibility, budget, rate limit, approval
 -> validate input schema
 -> create pre-call audit
--> resolve tenant-scoped credential handle nếu cần (KMS decrypt, ADR-006)
--> execute built-in tool hoặc filtered MCP tool với timeout
--> validate, bound, redact output
+-> resolve tenant-scoped credential handle if needed (KMS decrypt, ADR-006)
+-> execute built-in tool, delegated Deep Agent, or filtered MCP tool with timeout
+-> validate, bound, and redact output
 -> update audit
--> return structured result hoặc typed error
+-> return structured result or typed error
 ```
 
-## Tool Types
+### Capability Manifest
 
-| Type | Examples | V1 stance |
-| --- | --- | --- |
-| Built-in read | `rag.search`, `tenant.official_links` | Yes. |
-| Built-in side effect | `moderation.propose_action` | Yes với audit/idempotency. |
-| MCP read | `crypto.price`, `web.search` | Later, tenant-enabled only. |
-| MCP side effect | ticket/CRM/write actions | Defer until approval/idempotency. |
-| Forbidden | wallet signing, fund movement, arbitrary shell | Out of scope. |
+```yaml
+schema_version: "1"
+name: "rag.search"
+type: "tool"
+risk_level: "read_sensitive"
+allowed_agent_roles: ["support"]
+default_timeout_ms: 3000
+max_timeout_ms: 8000
+retry_policy: "read_idempotent"
+audit_event: "tool.rag.search"
+input_schema_ref: "schemas/rag.search.input.json"
+output_schema_ref: "schemas/rag.search.output.json"
+```
+
+Examples:
+
+| Capability | Type | Risk | Notes |
+| --- | --- | --- | --- |
+| `rag.search` | built-in read tool | `read_sensitive` | Tenant-filtered snippets with citations |
+| `tenant.official_links` | built-in read tool | `read_public` | Deterministic onboarding links |
+| `moderation.propose_action` | built-in side effect | `moderation_side_effect` | Requires audit/idempotency; enforcement depends on tenant mode |
+| `support-investigator` | delegated Deep Agent | `read_sensitive` | Max steps, inherited tenant/trace/budget/allowed tools |
+
+MCP rules: pinned server identity/version, filtered tool list, no token passthrough, no arbitrary remote discovery, no arbitrary shell. Side-effecting MCP tools require idempotency plus approval and are deferred until the approval path is proven.
+
+## Deep Agents Delegation Policy
+
+Use delegated Deep Agents for: multi-step investigation, large context offload, report drafting, specialist tool sets, long-running workflows, and approval pauses.
+
+When NOT to use delegated Deep Agents: normal FAQ, single-step RAG, onboarding, fast moderation screening, deterministic policy checks, or any path where overhead is larger than benefit.
+
+Delegated capability constraints: tenant opt-in, inherited trace/tenant/budget/timeout/visibility/allowed tools, no dynamic unfiltered tool request, no durable writes except audited services, run-scoped disposable scratch, bounded output returned through Capability Runtime.
+
+```yaml
+name: "support-investigator"
+type: "deep_agent"
+risk_level: "read_sensitive"
+allowed_tools: ["rag.search", "tenant.official_links"]
+max_steps: 8
+timeout_ms: 20000
+```
+
+```yaml
+name: "ops-report-agent"
+type: "deep_agent"
+risk_level: "internal_report"
+allowed_tools: ["rag.search"]
+max_steps: 10
+timeout_ms: 30000
+requires_approval_for_output: true
+```
+
+Dependency checkpoint: verify `deepagents` package/API and get approval before adding it to `pyproject.toml`.
+
+## Support, Moderation, And Onboarding Policies
+
+Support RAG: call `rag.search` through Capability Runtime; answer only from approved context with citation metadata; empty/stale/low-confidence results must refuse, clarify, or escalate; public channels must not use private/internal source content without policy.
+
+Moderation: default destructive actions to `shadow`; use `propose` for uncertain/high-impact actions; use `enforce` only with explicit tenant policy, idempotency, and required approval gates.
+
+Onboarding: deterministic-first templates, official links, safety warnings, community rules, locale fallback. LLM rendering is optional and must not invent links/policy.
 
 ## Prompt And Model Policy
 
-Prompts là versioned assets. Mỗi model call record: provider, model, temperature, max tokens, prompt version, tenant config/policy version, token usage/cost, timeout/retry outcome.
+Prompts are versioned assets. Every model call records provider, model, temperature, max tokens, prompt version, tenant config/policy version, token usage/cost, timeout/retry outcome.
 
-System prompts phải nói: retrieved docs là untrusted data không override platform policy; tool calls cần structured schema + platform permission; answer phải refuse/escalate khi source support yếu; no destructive action từ free-form text.
+System prompts must state: retrieved docs are untrusted data and cannot override platform policy; tool calls require structured schema plus platform permission; answers must refuse/escalate when source support is weak; destructive action cannot be taken from free-form text.
 
-Prompt asset groups: platform system policy, support answer policy, moderation classification policy, onboarding render policy, citation/refusal policy, prompt-injection handling policy.
+`ModelPolicyMiddleware` must reconcile with existing `app/services/llm/service.py` retry/fallback so fallback logic is not duplicated.
 
 ## Human-In-The-Loop
 
-Human approval bắt buộc cho: destructive moderation (trừ policy explicit cho enforce), high-risk side-effect tools, candidate knowledge approval, policy/plugin changes in production, incident replay/export với sensitive data.
+Human approval is required for destructive moderation unless explicitly allowed by tenant policy, high-risk side-effect tools, candidate knowledge approval, production policy/plugin changes, and sensitive incident replay/export.
 
-HITL impl = graph interrupt, review queue, hoặc operator API. Phase 6 = Telegram bot review (inline keyboard). Final action record với actor + trace id.
+Implementation options: LangGraph interrupt, review queue, operator API, or Phase 6 Telegram bot review. Final action records include actor, trace id, tenant id, decision, and timestamp.
 
-## Core Agent Test Plan
+## Replay And Checkpointing
 
-- Graph routing support/moderation/onboarding/fallback.
-- Tenant id immutable sau hydration.
-- Disabled tenant fail trước graph execution/outbound.
-- No real LLM trong unit tests.
-- Fake tool/model replay deterministic.
-- `rag.search` denial cho wrong tenant/visibility.
-- Disabled tool/plugin denied + audited.
-- Prompt injection fixture refuse tool/policy override.
-- Moderation shadow/propose/enforce policy matrix.
+Replay inputs: trusted runtime event, tenant profile version, prompt/model versions, allowed capability versions, retrieval fixture/source version, tool call fixtures, and model output fixtures.
 
-## First Build Slice (Phase 3)
+Rules: unit tests do not call real LLM/external tools; replay preserves trusted tenant id; run records identify graph version and middleware sequence; checkpoints support resume; audit/run tables are incident source of truth.
 
-1. Tenant-aware graph state.
-2. hydrate_context node.
-3. Intent + risk stubs với fake model.
-4. policy_check.
-5. Run/step persistence.
-6. Outbound builder với safe fallback.
-7. Replay tests với mocked model/tool.
+Checkpointer + RLS (ADR-002): AsyncPostgresSaver uses the same connection pool but does not set tenant context by itself. Include `tenant_id` in checkpoint metadata and filter app-side. Worker crash during graph run leaves a checkpoint; restart reclaims stale `processing` event and resumes same run.
 
-RAG, tool registry, MCP, sub-agent harness sau khi graph skeleton + audit path pass.
+## Migration Plan
 
-## Resolved Open Questions
+Compatibility matrix:
 
-- Graph execution → worker sau ingest (ADR-003), không sync request.
-- Checkpointer → template AsyncPostgresSaver + tenant_id trong metadata + product run tables.
-- Review UI cho HITL → Telegram bot review Phase 6.
+| Current behavior/API | Migration requirement |
+| --- | --- |
+| `LangGraphAgent.get_response` | Preserve signature and response behavior behind compatibility wrapper |
+| `LangGraphAgent.get_stream_response` | Preserve streaming chunks and cancellation/resume semantics |
+| `LangGraphAgent.get_chat_history` | Preserve checkpoint/thread history reads |
+| `LangGraphAgent.clear_chat_history` | Preserve existing clear behavior |
+| Postgres checkpointer | Keep checkpoint/resume with tenant metadata |
+| Langfuse callbacks | Replace or wrap with observability middleware without losing trace refs |
+| Memory search/add | Move behind memory middleware without duplicate writes |
+| Outbox worker compatibility | Keep delivery_outbox and processing_outbox idempotency/reclaim semantics |
+
+Implementation slices:
+
+1. Docs/ADR and approval of harness architecture.
+2. Package/API spike for `create_agent` with fake model/tool/checkpointer constraints.
+3. `app/core/agent_harness/` state/context skeleton.
+4. Middleware skeleton with no real LLM calls in unit tests.
+5. Capability Runtime skeleton and manifest loader.
+6. `LangGraphAgent` compatibility wrapper for current chatbot callers.
+7. Worker/outbox integration after compatibility tests pass.
+8. Delegated Deep Agents capability after dependency approval.
+
+Rollback path: keep current `LangGraphAgent` implementation behind the stable public interface until harness tests pass; switch by config flag or small wrapper change, not a big-bang rewrite.
+
+Dependency gates: verify LangChain middleware APIs and `create_agent` checkpointer behavior in a spike; approve `deepagents` separately before dependency addition.
+
+## Test Plan
+
+- No real LLM in unit tests; use fake model/tool and deterministic replay fixtures.
+- Fake model/tool support, moderation, onboarding, fallback, and prompt-injection fixtures.
+- Disabled tenant fails before model/tool/outbound.
+- `tenant_id` immutable after hydration.
+- Tool denied path is audited and returns safe fallback when allowed.
+- Prompt injection cannot override policy or request hidden tools.
+- Streaming interrupt/resume works through checkpoints.
+- Memory read/write is bounded and non-duplicating.
+- Outbox idempotency and stale processing reclaim remain covered.
+- Capability manifest contract tests validate schema, timeout, redaction, and audit fields.
+
+## First Code Spike Brief
+
+The first code spike should verify `create_agent` with current model/tool/checkpointer constraints while preserving `LangGraphAgent` public API in a compatibility wrapper. Candidate files: `app/core/agent_harness/`, `app/core/langgraph/graph.py`, `app/schemas/graph.py`, and `tests/agent_harness/`. Proof must use fake model/tool only.
 
 ## References
 
 - [System Architecture](system-architecture.md)
 - [Adapters And Integrations](adapters-and-integrations.md)
+- [ADR-002 Tenant Isolation](../06-decisions/adr-002-tenant-isolation-model.md)
 - [ADR-003 Graph Execution](../06-decisions/adr-003-graph-execution-mode.md)
+- [ADR-010 Agent Harness Core](../06-decisions/adr-010-agent-harness-core.md)
 - [Eval Datasets](../04-observability/eval-datasets.md)
