@@ -63,7 +63,10 @@ class ReciprocalRankFusionHybridRetriever:
             score, payload = fused.get(result.chunk_id, (0.0, result.payload))
             fused[result.chunk_id] = (score + _rrf(rank), {**payload, "keyword_score": result.score})
         ordered = sorted(fused.items(), key=lambda item: item[1][0], reverse=True)
-        return [VectorResult(chunk_id=chunk_id, score=score, payload=payload) for chunk_id, (score, payload) in ordered[:bounded_final_top_k]]
+        return [
+            VectorResult(chunk_id=chunk_id, score=score, payload=payload)
+            for chunk_id, (score, payload) in ordered[:bounded_final_top_k]
+        ]
 
 
 def _rrf(rank: int) -> float:

@@ -26,10 +26,12 @@ async def test_bm25_tokenizes_documents_once_at_index_build(monkeypatch) -> None
     import app.knowledge.keyword_search as keyword_search
 
     monkeypatch.setattr(keyword_search, "tokenize", counted_tokenize)
-    provider = InMemoryBM25KeywordSearchProvider([
-        KeywordDocument(uuid4(), tenant_id, "alpha beta"),
-        KeywordDocument(uuid4(), tenant_id, "alpha gamma"),
-    ])
+    provider = InMemoryBM25KeywordSearchProvider(
+        [
+            KeywordDocument(uuid4(), tenant_id, "alpha beta"),
+            KeywordDocument(uuid4(), tenant_id, "alpha gamma"),
+        ]
+    )
 
     assert calls == 2
     await provider.search("alpha", tenant_id)

@@ -35,11 +35,17 @@ async def test_bm25_provider_filters_by_tenant_visibility_active_source_and_loca
     source_id = uuid4()
     version_id = uuid4()
     matching = uuid4()
-    provider = InMemoryBM25KeywordSearchProvider([
-        KeywordDocument(matching, tenant_id, "Exact SKU-123 refund policy", "private", "en", True, version_id, source_id),
-        KeywordDocument(uuid4(), other_tenant, "Exact SKU-123 leak", "private", "en", True, version_id, source_id),
-        KeywordDocument(uuid4(), tenant_id, "Exact SKU-123 inactive", "private", "en", False, version_id, source_id),
-    ])
+    provider = InMemoryBM25KeywordSearchProvider(
+        [
+            KeywordDocument(
+                matching, tenant_id, "Exact SKU-123 refund policy", "private", "en", True, version_id, source_id
+            ),
+            KeywordDocument(uuid4(), other_tenant, "Exact SKU-123 leak", "private", "en", True, version_id, source_id),
+            KeywordDocument(
+                uuid4(), tenant_id, "Exact SKU-123 inactive", "private", "en", False, version_id, source_id
+            ),
+        ]
+    )
 
     results = await provider.search(
         "SKU-123",
@@ -66,13 +72,17 @@ async def test_hybrid_retriever_deduplicates_and_fuses_rrf_scores() -> None:
     tenant_id = uuid4()
     duplicate = uuid4()
     vector_only = uuid4()
-    keyword_provider = InMemoryBM25KeywordSearchProvider([
-        KeywordDocument(duplicate, tenant_id, "SKU-999 exact fact", payload={"branch": "keyword"}),
-    ])
-    vector_provider = StaticVectorProvider([
-        VectorResult(vector_only, 0.99, {"branch": "vector"}),
-        VectorResult(duplicate, 0.88, {"branch": "vector"}),
-    ])
+    keyword_provider = InMemoryBM25KeywordSearchProvider(
+        [
+            KeywordDocument(duplicate, tenant_id, "SKU-999 exact fact", payload={"branch": "keyword"}),
+        ]
+    )
+    vector_provider = StaticVectorProvider(
+        [
+            VectorResult(vector_only, 0.99, {"branch": "vector"}),
+            VectorResult(duplicate, 0.88, {"branch": "vector"}),
+        ]
+    )
     retriever = ReciprocalRankFusionHybridRetriever(vector_provider, keyword_provider)
 
     results = await retriever.search("SKU-999", [0.1], tenant_id, final_top_k=5)

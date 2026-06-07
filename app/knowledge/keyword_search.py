@@ -86,7 +86,8 @@ class InMemoryBM25KeywordSearchProvider:
         allowed_sv = set(source_version_ids) if source_version_ids else None
         candidate_ids = self._candidate_ids(query_terms)
         filtered_ids = [
-            doc_id for doc_id in candidate_ids
+            doc_id
+            for doc_id in candidate_ids
             if self._matches_filters(
                 self._documents[doc_id].document,
                 tenant_id=tenant_id,
@@ -107,7 +108,9 @@ class InMemoryBM25KeywordSearchProvider:
         results: list[KeywordResult] = []
         for doc_id in filtered_ids:
             indexed = self._documents[doc_id]
-            score = _bm25_score(query_terms, indexed.term_frequency, indexed.length, len(filtered_ids), avg_len, doc_frequency)
+            score = _bm25_score(
+                query_terms, indexed.term_frequency, indexed.length, len(filtered_ids), avg_len, doc_frequency
+            )
             if score > 0:
                 doc = indexed.document
                 results.append(KeywordResult(doc.chunk_id, score, dict(doc.payload or {})))

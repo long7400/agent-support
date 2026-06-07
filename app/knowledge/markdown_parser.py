@@ -59,7 +59,8 @@ def extract_markdown_zip(data: bytes) -> list[MarkdownDocument]:
     docs: list[MarkdownDocument] = []
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         names = sorted(
-            name for name in archive.namelist()
+            name
+            for name in archive.namelist()
             if not name.endswith("/") and PurePosixPath(name).suffix.lower() in {".md", ".markdown"}
         )
         for name in names:
