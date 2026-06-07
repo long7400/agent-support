@@ -6,8 +6,8 @@ import tiktoken
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import trim_messages as _trim_messages
 
-from app.core.config import settings
-from app.core.logging import logger
+from app.infra.config import settings
+from app.infra.logging import logger
 from app.schemas import Message
 
 # Cache tiktoken encoding at module level — thread-safe and reusable

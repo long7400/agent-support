@@ -1,14 +1,14 @@
-"""This file contains the prompts for the agent."""
+"""Prompt templates shared by the application infrastructure layer."""
 
 import os
 from datetime import datetime
 from typing import Optional
 
-from app.core.config import settings
+from app.infra.config import settings
 
 _PROMPTS_DIR = os.path.dirname(__file__)
 
-# Read templates once at module load — no file I/O per request
+# Read templates once at module load; request paths should not touch disk.
 with open(os.path.join(_PROMPTS_DIR, "system.md"), "r") as _f:
     _SYSTEM_PROMPT_TEMPLATE = _f.read()
 

@@ -13,8 +13,8 @@ from typing import (
     cast,
 )
 
-from app.core.config import settings
-from app.core.logging import logger
+from app.infra.config import settings
+from app.infra.logging import logger
 
 # Try to import redis — it's an optional dependency
 if TYPE_CHECKING:

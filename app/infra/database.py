@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import settings
-from app.core.tenant_context import with_tenant_context
+from app.infra.config import settings
+from app.infra.tenant_context import with_tenant_context
 
 
 def build_database_url(driver: str) -> str:

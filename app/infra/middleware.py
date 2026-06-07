@@ -18,13 +18,13 @@ from jose import (
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from app.core.config import settings
-from app.core.logging import (
+from app.infra.config import settings
+from app.infra.logging import (
     bind_context,
     clear_context,
     logger,
 )
-from app.core.metrics import (
+from app.infra.metrics import (
     http_request_duration_seconds,
     http_requests_total,
 )

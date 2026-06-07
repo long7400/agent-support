@@ -9,7 +9,7 @@ import secrets
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.core.config import (
+from app.infra.config import (
     Environment,
     settings,
 )

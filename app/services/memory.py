@@ -5,12 +5,12 @@ from typing import Any, cast
 
 from mem0 import AsyncMemory
 
-from app.core.cache import (
+from app.infra.cache import (
     cache_key,
     cache_service,
 )
-from app.core.config import settings
-from app.core.logging import logger
+from app.infra.config import settings
+from app.infra.logging import logger
 
 
 class MemoryService:

@@ -15,9 +15,9 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.core.logging import logger
-from app.core.tenant_context import with_tenant_context
+from app.infra.config import settings
+from app.infra.logging import logger
+from app.infra.tenant_context import with_tenant_context
 import app.models.platform  # noqa: F401  # Register platform tables for FK resolution.
 from app.models.messaging import DeliveryOutbox, DeliveryReceipt
 from app.services.rate_limits import RateLimiter, check_telegram_rate_limits

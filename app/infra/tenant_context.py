@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging import bind_context
+from app.infra.logging import bind_context
 
 
 async def set_local_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:

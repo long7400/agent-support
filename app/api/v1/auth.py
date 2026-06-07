@@ -21,9 +21,9 @@ from fastapi.security import (
 )
 from pydantic import ValidationError
 
-from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.logging import (
+from app.infra.config import settings
+from app.infra.limiter import limiter
+from app.infra.logging import (
     bind_context,
     logger,
 )
@@ -35,7 +35,7 @@ from app.schemas.auth import (
     UserCreate,
     UserResponse,
 )
-from app.core.tenant_context import with_tenant_context
+from app.infra.tenant_context import with_tenant_context
 from app.schemas.service_principal import ServicePrincipalAuthResult, ServicePrincipalCredential
 from app.schemas.tenant import ActorContext
 from app.services.database import DatabaseService
@@ -126,7 +126,7 @@ async def get_current_tenant_member(
     current_user: User = Depends(get_current_user),
 ) -> ActorContext:
     """Require the current user to be a member of the tenant."""
-    from app.core.database import AsyncSessionLocal
+    from app.infra.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
@@ -142,7 +142,7 @@ async def require_tenant_admin(
     current_user: User = Depends(get_current_user),
 ) -> ActorContext:
     """Require current user to be a tenant admin."""
-    from app.core.database import AsyncSessionLocal
+    from app.infra.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
         async with with_tenant_context(session, tenant_id):
@@ -158,7 +158,7 @@ async def authenticate_service_principal(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> ServicePrincipalAuthResult:
     """Authenticate a service-principal bearer token."""
-    from app.core.database import AsyncSessionLocal
+    from app.infra.database import AsyncSessionLocal
 
     try:
         credential = ServicePrincipalCredential.model_validate_json(credentials.credentials)

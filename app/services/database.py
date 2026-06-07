@@ -11,12 +11,12 @@ from sqlalchemy import (
     text,
 )
 
-from app.core.config import settings
-from app.core.database import (
+from app.infra.config import settings
+from app.infra.database import (
     AsyncSessionLocal,
     async_engine,
 )
-from app.core.logging import logger
+from app.infra.logging import logger
 from app.models.session import Session as ChatSession
 from app.models.user import User
 

@@ -18,18 +18,18 @@ from slowapi.errors import RateLimitExceeded
 from asgi_correlation_id import CorrelationIdMiddleware
 
 from app.api.v1.api import api_router
-from app.core.cache import cache_service
-from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.logging import logger
-from app.core.metrics import setup_metrics
-from app.core.middleware import (
+from app.infra.cache import cache_service
+from app.infra.config import settings
+from app.infra.limiter import limiter
+from app.infra.logging import logger
+from app.infra.metrics import setup_metrics
+from app.infra.middleware import (
     LoggingContextMiddleware,
     MetricsMiddleware,
     ProfilingMiddleware,
 )
-from app.core.observability import langfuse_init
-from app.core.runtime_guardrails import validate_runtime_guardrails
+from app.infra.observability import langfuse_init
+from app.infra.runtime_guardrails import validate_runtime_guardrails
 from app.services.database import database_service
 from app.services.memory import memory_service
 
