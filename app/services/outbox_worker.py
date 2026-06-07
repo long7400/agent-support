@@ -24,6 +24,10 @@ import app.models.platform  # noqa: F401  # Register platform tables for FK reso
 from app.models.messaging import ChatEvent, DeliveryOutbox, ProcessingOutbox
 from app.services.p2_audit import emit_audit_event, SYSTEM_ACTOR
 
+# Phase 3: harness runtime replaces the echo stub
+from app.agent_harness.runner import HarnessRunner
+from app.agent_harness.version import HARNESS_VERSION
+
 
 # Module-level worker ID (stable for the process lifetime)
 _WORKER_ID: str = f"{socket.gethostname()}:{id(object())}"
@@ -59,10 +63,16 @@ class ProcessingOutboxWorker:
     4. On failure: schedule_retry() or mark_dlq()
     """
 
-    def __init__(self, session: AsyncSession, worker_id: str | None = None) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        worker_id: str | None = None,
+        harness_runner: HarnessRunner | None = None,
+    ) -> None:
         """Initialize processing outbox worker with session."""
         self._session = session
         self._worker_id = worker_id or _WORKER_ID
+        self._harness_runner = harness_runner or HarnessRunner()
 
     async def get_tenants_with_pending_processing(self) -> list[UUID]:
         """Get list of tenant IDs that have pending processing work.
@@ -204,13 +214,14 @@ class ProcessingOutboxWorker:
         row: ProcessingOutbox,
         tenant_id: UUID,
     ) -> DeliveryOutbox | None:
-        """Process a single claimed row (Phase 2 stub).
+        """Process a single claimed row through the harness runtime.
 
-        Stub behavior: creates a delivery_outbox row echoing the inbound
-        text as a send_message, then marks the processing row as done.
+        Phase 3: delegates to HarnessRunner instead of the old echo stub.
+        Creates a delivery_outbox row from the policy-checked harness
+        envelope, then marks the processing row as done.
 
         Returns the created DeliveryOutbox row, or None if the chat event
-        cannot be resolved.
+        cannot be resolved or the envelope was empty.
         """
         now = datetime.now(UTC)
 
@@ -229,23 +240,27 @@ class ProcessingOutboxWorker:
             await self._mark_failed(row, "chat_event_not_found", tenant_id)
             return None
 
-        # Build deterministic idempotency key for outbound delivery
-        idempotency_key = f"p2:echo:{chat_event.id}"
+        # Run through the harness
+        result, envelope = await self._harness_runner.run_event(self._session, row, chat_event)
 
-        # Determine outbound action
-        action = "send_message"
-        text_content = chat_event.text_preview or ""
-
-        # Build delivery metadata (bounded, no raw payload)
-        delivery_metadata: dict[str, Any] = {
-            "source": "processing_stub",
-            "inbound_message_type": chat_event.message_type,
-        }
+        if envelope is None or envelope.text_content is None:
+            # No outbound content — mark as done without delivery
+            row.status = "done"
+            row.heartbeat_at = now
+            row.updated_at = now
+            logger.info(
+                "processing_no_outbound",
+                tenant_id=str(tenant_id),
+                outbox_id=str(row.id),
+                status=result.get("status", "unknown"),
+            )
+            await self._session.flush()
+            return None
 
         # Check for existing delivery (idempotency)
         existing_stmt = select(DeliveryOutbox).where(
             DeliveryOutbox.tenant_id == tenant_id,
-            DeliveryOutbox.idempotency_key == idempotency_key,
+            DeliveryOutbox.idempotency_key == envelope.idempotency_key,
         )
         existing_result = await self._session.execute(existing_stmt)
         existing = existing_result.scalar_one_or_none()
@@ -263,6 +278,17 @@ class ProcessingOutboxWorker:
             )
             return existing
 
+        # Build delivery metadata from harness result
+        delivery_metadata: dict[str, Any] = {
+            "source": "harness",
+            "harness_version": HARNESS_VERSION,
+            "inbound_message_type": chat_event.message_type,
+            "status": result.get("status", "completed"),
+            "policy_decision": envelope.policy_decision,
+            "model_calls": len(result.get("model_calls_made", [])),
+            "tool_calls": len(result.get("tool_calls_made", [])),
+        }
+
         # Create delivery_outbox row
         delivery = DeliveryOutbox(
             tenant_id=tenant_id,
@@ -270,10 +296,11 @@ class ProcessingOutboxWorker:
             platform=chat_event.platform,
             channel_id=chat_event.channel_id,
             thread_id=chat_event.thread_id,
-            action=action,
-            text_content=text_content,
+            action=envelope.action,
+            text_content=envelope.text_content,
             metadata_json=delivery_metadata,
-            idempotency_key=idempotency_key,
+            idempotency_key=envelope.idempotency_key or f"p3:harness:{chat_event.id}:{HARNESS_VERSION}",
+            agent_run_id=result.get("agent_run_id"),
             status="pending",
             run_after_ts=now,
             retries=0,
@@ -293,7 +320,8 @@ class ProcessingOutboxWorker:
             tenant_id=str(tenant_id),
             outbox_id=str(row.id),
             delivery_id=str(delivery.id),
-            action=action,
+            action=envelope.action,
+            agent_run_id=str(result.get("agent_run_id", "")),
         )
         return delivery
 
@@ -406,11 +434,8 @@ class ProcessingOutboxWorker:
 
             for row in claimed:
                 try:
-                    result = await self.process_row(row, tenant_id)
-                    if result is not None:
-                        stats["processed"] += 1
-                    else:
-                        stats["failed"] += 1
+                    await self.process_row(row, tenant_id)
+                    stats["processed"] += 1
                 except Exception as exc:
                     stats["failed"] += 1
                     await self.schedule_retry(row, str(exc), tenant_id)

@@ -10,8 +10,12 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.database import build_sync_database_url
+from app.models.agent_run import AgentRun  # noqa: F401
+from app.models.agent_run_step import AgentRunStep  # noqa: F401
 from app.models.audit import AuditEvent  # noqa: F401
 from app.models.base import Base
+from app.models.graph_checkpoint_metadata import GraphCheckpointMetadata  # noqa: F401
+from app.models.model_call import ModelCall  # noqa: F401
 from app.models.service_principal import ServicePrincipal  # noqa: F401
 from app.models.session import Session  # noqa: F401
 from app.models.tenant import Tenant, TenantConfigVersion, TenantMembership, TenantRole  # noqa: F401

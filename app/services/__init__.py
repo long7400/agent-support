@@ -1,9 +1,8 @@
-"""This file contains the services for the application."""
+"""Services package.
+
+Phase 3: LLM services are stubbed.  Use app.agent_harness for model execution.
+"""
 
 from app.services.database import database_service
-from app.services.llm import (
-    LLMRegistry,
-    llm_service,
-)
 
-__all__ = ["database_service", "LLMRegistry", "llm_service"]
+__all__ = ["database_service"]

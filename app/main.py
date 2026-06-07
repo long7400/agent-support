@@ -18,7 +18,6 @@ from slowapi.errors import RateLimitExceeded
 from asgi_correlation_id import CorrelationIdMiddleware
 
 from app.api.v1.api import api_router
-from app.api.v1.chatbot import agent
 from app.core.cache import cache_service
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -56,14 +55,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("cache_initialization_failed", error=str(e))
 
-    # Pre-warm the LangGraph agent: create graph + connection pool at startup
-    # to avoid cold-start latency on the first request
-    try:
-        await agent.create_graph()
-        logger.info("graph_pre_warmed")
-    except Exception as e:
-        logger.exception("graph_pre_warm_failed", error=str(e))
-
     # Pre-warm mem0 only when explicitly enabled. Community-mode memory is
     # disabled by default until tenant retention and review policies are wired.
     try:
@@ -75,9 +66,6 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     await cache_service.close()
-    if agent._connection_pool:
-        await agent._connection_pool.close()
-        logger.info("connection_pool_closed")
     logger.info("application_shutdown")
 
 
