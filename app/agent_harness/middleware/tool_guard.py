@@ -25,7 +25,17 @@ class ToolGuardMiddleware:
     TOOL_SCHEMAS = {
         "rag.search": {
             "required": ["query"],
-            "optional": ["top_k", "threshold"],
+            "optional": [
+                "candidate_top_k",
+                "final_top_k",
+                "locale",
+                "min_score",
+                "retrieval_denied",
+                "retrieval_mode",
+                "source_allowlist",
+                "source_version_ids",
+                "visibility",
+            ],
         },
     }
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from app.infra.observability import record_rag_observability_event
 from app.vector.contracts import KeywordSearchProvider, VectorResult, VectorSearchProvider
 
 _RRF_K = 60
@@ -63,10 +64,18 @@ class ReciprocalRankFusionHybridRetriever:
             score, payload = fused.get(result.chunk_id, (0.0, result.payload))
             fused[result.chunk_id] = (score + _rrf(rank), {**payload, "keyword_score": result.score})
         ordered = sorted(fused.items(), key=lambda item: item[1][0], reverse=True)
-        return [
+        results = [
             VectorResult(chunk_id=chunk_id, score=score, payload=payload)
             for chunk_id, (score, payload) in ordered[:bounded_final_top_k]
         ]
+        record_rag_observability_event(
+            "rag.retrieval.fusion",
+            tenant_id=str(tenant_id),
+            retrieval_mode="hybrid",
+            candidate_count=len(vector_results) + len(keyword_results),
+            returned_count=len(results),
+        )
+        return results
 
 
 def _rrf(rank: int) -> float:
