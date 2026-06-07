@@ -82,6 +82,62 @@ class TestFakeToolDenial:
 
         anyio.run(_run)
 
+    def test_unknown_capability_returns_denial_result(self) -> None:
+        """Unknown registry capability names should return a denial payload."""
+
+        async def _run() -> None:
+            state = _make_state()
+            registry = FakeCapabilityRegistry()
+
+            result = await registry.execute(state, HarnessContext(), "missing.tool", {})
+
+            assert result["denied"] is True
+            assert "not allowed" in result["error"]
+
+        anyio.run(_run)
+
+    def test_tool_guard_denies_invalid_arguments(self) -> None:
+        """Available tools with invalid arguments should be denied before execution."""
+
+        async def _run() -> None:
+            state = _make_state()
+            state["available_capabilities"] = ["rag.search"]
+            guard = ToolGuardMiddleware()
+            tool_executed = False
+
+            async def _tool_body() -> dict:
+                nonlocal tool_executed
+                tool_executed = True
+                return {"executed": True}
+
+            with pytest.raises(CapabilityDeniedError):
+                await guard.wrap_tool_call(state, HarnessContext(), "rag.search", {}, _tool_body)
+
+            assert not tool_executed
+            assert state["tool_results"][0]["status"] == "denied"
+            assert "invalid_args" in state["tool_results"][0]["reason"]
+
+        anyio.run(_run)
+
+    def test_tool_guard_records_execution_failure(self) -> None:
+        """Tool execution exceptions should be audited and re-raised."""
+
+        async def _run() -> None:
+            state = _make_state()
+            state["available_capabilities"] = ["rag.search"]
+            guard = ToolGuardMiddleware()
+
+            async def _tool_body() -> dict:
+                raise RuntimeError("boom")
+
+            with pytest.raises(RuntimeError, match="boom"):
+                await guard.wrap_tool_call(state, HarnessContext(), "rag.search", {"query": "docs"}, _tool_body)
+
+            assert state["tool_results"][0]["status"] == "failed"
+            assert state["tool_results"][0]["error"] == "boom"
+
+        anyio.run(_run)
+
     def test_disallowed_tool_body_never_called(self) -> None:
         """The tool body for a disallowed tool should never execute."""
 

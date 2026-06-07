@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +48,7 @@ async def create_agent_run(
         The newly created AgentRun ORM instance.
     """
     run = AgentRun(
+        id=uuid4(),
         tenant_id=tenant_id,
         processing_outbox_id=processing_outbox_id,
         trace_id=trace_id,

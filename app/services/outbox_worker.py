@@ -63,10 +63,16 @@ class ProcessingOutboxWorker:
     4. On failure: schedule_retry() or mark_dlq()
     """
 
-    def __init__(self, session: AsyncSession, worker_id: str | None = None) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        worker_id: str | None = None,
+        harness_runner: HarnessRunner | None = None,
+    ) -> None:
         """Initialize processing outbox worker with session."""
         self._session = session
         self._worker_id = worker_id or _WORKER_ID
+        self._harness_runner = harness_runner or HarnessRunner()
 
     async def get_tenants_with_pending_processing(self) -> list[UUID]:
         """Get list of tenant IDs that have pending processing work.
@@ -235,8 +241,7 @@ class ProcessingOutboxWorker:
             return None
 
         # Run through the harness
-        runner = HarnessRunner()
-        result, envelope = await runner.run_event(self._session, row, chat_event)
+        result, envelope = await self._harness_runner.run_event(self._session, row, chat_event)
 
         if envelope is None or envelope.text_content is None:
             # No outbound content — mark as done without delivery
@@ -429,11 +434,8 @@ class ProcessingOutboxWorker:
 
             for row in claimed:
                 try:
-                    result = await self.process_row(row, tenant_id)
-                    if result is not None:
-                        stats["processed"] += 1
-                    else:
-                        stats["failed"] += 1
+                    await self.process_row(row, tenant_id)
+                    stats["processed"] += 1
                 except Exception as exc:
                     stats["failed"] += 1
                     await self.schedule_retry(row, str(exc), tenant_id)

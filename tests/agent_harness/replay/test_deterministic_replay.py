@@ -72,22 +72,19 @@ class TestDeterministicReplay:
         assert_replay_equal(result1, result2, "Identical runs should produce identical normalized outputs")
 
     def test_differs_with_different_input(self) -> None:
-        """Different inputs should produce different outputs."""
+        """Different text fixtures should produce different normalized outputs."""
         event1 = _make_event()
         event2 = _make_event()
+        event2["tenant_id"] = event1["tenant_id"]
+        event2["text_preview"] = "bye"
         profile = _make_profile(event1)
 
         result1 = _run_harness(event1, profile)
         result2 = _run_harness(event2, profile)
 
-        a = normalize_for_replay(result1)
-        b = normalize_for_replay(result2)
+        assert normalize_for_replay(result1) != normalize_for_replay(result2)
 
-        # Different tenant_ids could still produce same response if text_preview same
-        # Since both have "hello", responses should match
-        assert a == b  # Both have same text_preview "hello" -> same fixture response
-
-    def test_nromalize_strips_uuid(self) -> None:
+    def test_normalize_strips_uuid(self) -> None:
         """normalize_for_replay should strip UUIDs from strings."""
         data = {
             "agent_run_id": uuid4(),

@@ -18,13 +18,14 @@ class ObservabilityMiddleware:
         """Initialize the middleware."""
         self._start_times: dict[str, float] = {}
 
-    async def before_agent(self, state: AgentRunState, context: HarnessContext) -> None:
+    async def before_agent(self, state: AgentRunState, context: HarnessContext) -> AgentRunState:
         """Record run start time."""
         trace_id = context.get("trace_id")
         if trace_id:
             self._start_times[trace_id] = time.time()
+        return state
 
-    async def after_agent(self, state: AgentRunState, context: HarnessContext) -> None:
+    async def after_agent(self, state: AgentRunState, context: HarnessContext) -> AgentRunState:
         """Emit final trace metadata."""
         trace_id = context.get("trace_id")
         latency_ms = 0
@@ -32,3 +33,4 @@ class ObservabilityMiddleware:
             latency_ms = int((time.time() - self._start_times[trace_id]) * 1000)
             del self._start_times[trace_id]
         state["_trace_metadata"] = {"latency_ms": latency_ms}
+        return state

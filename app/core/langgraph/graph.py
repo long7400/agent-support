@@ -9,8 +9,8 @@ NOTE: This module is scheduled for removal in Phase 4.
 
 from __future__ import annotations
 
-from typing import Any
-from uuid import uuid4
+from typing import Any, cast
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from app.agent_harness.contracts import TrustedRuntimeEvent, TenantHarnessProfile
 from app.agent_harness.models.fake_model import FakeModel
@@ -54,21 +54,22 @@ class LangGraphAgent:
                 last_user_msg = msg.get("content", "")
                 break
 
-        event: TrustedRuntimeEvent = {
-            "event_id": session_id,
-            "tenant_id": None,
-            "chat_event_id": str(uuid4()),
+        synthetic_tenant_id = uuid5(NAMESPACE_URL, session_id)
+        event = cast(TrustedRuntimeEvent, {
+            "event_id": uuid4(),
+            "tenant_id": synthetic_tenant_id,
+            "chat_event_id": uuid4(),
             "platform": "telegram",
-            "channel_id": None,
+            "channel_id": synthetic_tenant_id,
             "thread_id": None,
             "user_id_hash": user_id or "",
             "message_type": "text",
             "text_preview": last_user_msg,
             "metadata": {},
-        }
+        })
 
-        profile: TenantHarnessProfile = {
-            "tenant_id": None,
+        profile = cast(TenantHarnessProfile, {
+            "tenant_id": synthetic_tenant_id,
             "config_version": 1,
             "policy_version": 1,
             "enabled_platforms": ["telegram", "discord"],
@@ -78,7 +79,7 @@ class LangGraphAgent:
             "moderation_policy": {},
             "escalation_policy": {},
             "budgets": {},
-        }
+        })
 
         result = await self._runtime.run(event, profile)
         from app.schemas.chat import Message

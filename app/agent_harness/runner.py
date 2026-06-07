@@ -94,16 +94,15 @@ class HarnessRunner:
 
         try:
             # 4. Run harness
-            result = await self._runtime.run(event, profile)
+            result = await self._runtime.run(event, profile, agent_run_id=agent_run_id)
 
             # 5. Complete agent run record
-            latency_ms = 0
             await complete_agent_run(
                 session,
                 agent_run_id=agent_run_id,
                 status=result.get("status", "completed"),
                 final_response_preview=result.get("response_text", ""),
-                latency_ms=latency_ms,
+                latency_ms=result.get("latency_ms", 0),
             )
 
             # 6. Build outbound envelope (policy-checked)

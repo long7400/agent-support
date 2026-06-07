@@ -1,6 +1,6 @@
 """Tests for disabled tenant fail-closed behavior."""
 
-import asyncio
+import anyio
 from unittest.mock import Mock
 from app.agent_harness.errors import TenantDisabledError
 from app.agent_harness.middleware.tenant_context import TenantContextMiddleware
@@ -32,7 +32,7 @@ def test_disabled_tenant_raises_error():
 
     # TenantContext should raise TenantDisabledError
     try:
-        asyncio.run(middleware.before_agent(state, context))
+        anyio.run(middleware.before_agent, state, context)
         raise AssertionError("Expected TenantDisabledError")
     except TenantDisabledError as e:
         assert "disabled" in str(e).lower()
@@ -62,7 +62,7 @@ def test_suspended_tenant_raises_error():
     }
 
     try:
-        asyncio.run(middleware.before_agent(state, context))
+        anyio.run(middleware.before_agent, state, context)
         raise AssertionError("Expected TenantDisabledError")
     except TenantDisabledError as e:
         assert "suspended" in str(e).lower()
@@ -77,8 +77,8 @@ def test_active_tenant_passes_through():
             "status": "active",
             "plan": "professional",
             "limits": {"max_requests_per_minute": 100},
-            "config_version": 1,
-            "policy_version": 1,
+            "config_version": 42,
+            "policy_version": 7,
             "enabled_platforms": ["telegram", "discord"],
             "allowed_capabilities": ["rag.search"],
         }
@@ -91,12 +91,12 @@ def test_active_tenant_passes_through():
     }
 
     # Should not raise
-    result = asyncio.run(middleware.before_agent(state, Mock()))
+    result = anyio.run(middleware.before_agent, state, Mock())
 
     # State should be updated with tenant context
     assert "tenant_context" in result
     assert result["tenant_context"]["profile"]["plan"] == "professional"
-    assert result["tenant_context"]["config_version"] == 1
+    assert result["tenant_context"]["config_version"] == 42
 
 
 def test_tenant_context_populates_state():
@@ -122,7 +122,7 @@ def test_tenant_context_populates_state():
         "tenant_context": {"status": "active"},
     }
 
-    result = asyncio.run(middleware.before_agent(state, context))
+    result = anyio.run(middleware.before_agent, state, context)
 
     # Verify tenant_context is populated
     assert "tenant_context" in result
@@ -146,7 +146,7 @@ def test_missing_tenant_id_raises_error():
     }
 
     try:
-        asyncio.run(middleware.before_agent(state, context))
+        anyio.run(middleware.before_agent, state, context)
         raise AssertionError("Expected TenantDisabledError")
     except TenantDisabledError as e:
         assert "none" in str(e).lower()
@@ -163,8 +163,8 @@ def test_tenant_context_mutates_state():
         return {
             "tenant_id": tenant_id,
             "status": "active",
-            "config_version": 1,
-            "policy_version": 1,
+            "config_version": 99,
+            "policy_version": 11,
             "enabled_platforms": ["telegram"],
             "allowed_capabilities": ["rag.search"],
         }
@@ -176,11 +176,11 @@ def test_tenant_context_mutates_state():
         "tenant_context": {},
     }
 
-    result = asyncio.run(middleware.before_agent(state, Mock()))
+    result = anyio.run(middleware.before_agent, state, Mock())
 
     # Result should be the same dict (mutated in place)
     assert result is state
     # State should now have tenant_context populated
     assert "profile" in result["tenant_context"]
-    assert result["tenant_context"]["config_version"] == 1
+    assert result["tenant_context"]["config_version"] == 99
     assert "enabled_platforms" in result["tenant_context"]

@@ -30,7 +30,6 @@ class ModelPolicyMiddleware:
                 If None, uses default fake model.
         """
         self._model_selector = model_selector or self._default_model_selector
-        self._call_counts: dict[str, int] = {}  # run_id -> call count
 
     async def _default_model_selector(self, profile: dict[str, Any]) -> dict[str, Any]:
         """Default model selector for Phase 3."""
@@ -70,9 +69,6 @@ class ModelPolicyMiddleware:
         call: Any,
     ) -> Any:
         """Wrap model call to enforce limits and track usage."""
-        # Get run ID for tracking
-        context.get("trace_id", "unknown")
-
         # Check call limit
         budgets = state.get("budgets", {})
         max_calls = budgets.get("model_max_calls", self.DEFAULT_MAX_CALLS)

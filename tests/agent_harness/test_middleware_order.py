@@ -148,4 +148,6 @@ def test_stack_accepts_custom_dependencies():
 
     assert len(stack) == 11
     assert isinstance(stack[0], TenantContextMiddleware)
+    assert stack[0]._profile_loader is mock_profile_loader
     assert isinstance(stack[3], DynamicPromptMiddleware)
+    assert stack[3]._prompt_builder is mock_prompt_builder

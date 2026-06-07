@@ -52,8 +52,10 @@ class TenantContextMiddleware:
         if tenant_id is None:
             raise TenantDisabledError("tenant_id is None; cannot load profile")
 
-        # Load profile
-        profile = await self._profile_loader(tenant_id)
+        # Runtime-provided profiles are already policy snapshots; loader is fallback.
+        profile = state.get("tenant_context", {}).get("profile")
+        if profile is None:
+            profile = await self._profile_loader(tenant_id)
 
         # Check tenant status (in Phase 3 we assume active unless profile says otherwise)
         # In production, this would check tenant.status from DB

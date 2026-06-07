@@ -6,7 +6,7 @@ logged, and replayed without custom serialization logic.
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 from uuid import UUID
 
 from app.agent_harness.errors import TenantIdImmutableError
@@ -43,6 +43,10 @@ class AgentRunState(TypedDict, total=False):
     budgets: dict[str, Any]
     final_response: dict[str, Any] | None
     audit_refs: list[str]
+    model_config: dict[str, Any]
+    model_calls_made: list[dict[str, Any]]
+    _steps: list[dict[str, Any]]
+    _trace_metadata: dict[str, Any]
 
 
 def apply_state_update(state: AgentRunState, update: dict[str, Any]) -> AgentRunState:
@@ -65,7 +69,7 @@ def apply_state_update(state: AgentRunState, update: dict[str, Any]) -> AgentRun
             raise TenantIdImmutableError(
                 f"Cannot change tenant_id from {current} to {update['tenant_id']} after hydration"
             )
-    state.update(update)
+    state.update(cast(AgentRunState, update))
     return state
 
 
@@ -157,3 +161,4 @@ class HarnessResult(TypedDict, total=False):
     model_calls_made: list[dict[str, Any]]
     status: Literal["completed", "denied", "failed", "interrupted"]
     audit_refs: list[str]
+    latency_ms: int

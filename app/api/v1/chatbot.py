@@ -5,6 +5,9 @@ Keeps the same API shape as the template chatbot but delegates to the
 deterministic harness runtime.
 """
 
+from typing import cast
+from uuid import UUID, uuid5, NAMESPACE_URL
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -24,16 +27,12 @@ from app.schemas.chat import (
 )
 
 # Phase 3: harness runtime replaces LangGraphAgent
-from app.agent_harness.runner import HarnessRunner
 from app.agent_harness.contracts import (
     TenantHarnessProfile,
     TrustedRuntimeEvent,
 )
 
 router = APIRouter()
-
-# Module-level harness runner (stateless, no real LLM)
-_runner = HarnessRunner()
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -76,18 +75,19 @@ async def chat(
             return ChatResponse(messages=[Message(role="assistant", content="Please provide a message.")])
 
         # Build a trusted runtime event and run through harness
-        event: TrustedRuntimeEvent = {
-            "event_id": session.id.hex if hasattr(session.id, "hex") else session.id,
-            "tenant_id": None,  # No tenant context for chatbot sessions
-            "chat_event_id": session.id.hex if hasattr(session.id, "hex") else session.id,
+        session_uuid = session.id if isinstance(session.id, UUID) else uuid5(NAMESPACE_URL, str(session.id))
+        event = cast(TrustedRuntimeEvent, {
+            "event_id": session_uuid,
+            "tenant_id": session_uuid,  # Template chatbot sessions use a synthetic tenant.
+            "chat_event_id": session_uuid,
             "platform": "telegram",
-            "channel_id": None,
+            "channel_id": session_uuid,
             "thread_id": None,
             "user_id_hash": str(session.user_id or ""),
             "message_type": "text",
             "text_preview": last_user_msg.content,
             "metadata": {},
-        }
+        })
 
         # Phase 3: inline harness run without DB session
         from app.agent_harness.middleware.stack import build_default_middleware_stack
@@ -100,8 +100,8 @@ async def chat(
         middleware = build_default_middleware_stack()
         runtime = AgentHarnessRuntime(model, registry, middleware)
 
-        profile: TenantHarnessProfile = {
-            "tenant_id": None,
+        profile = cast(TenantHarnessProfile, {
+            "tenant_id": session_uuid,
             "config_version": 1,
             "policy_version": 1,
             "enabled_platforms": ["telegram", "discord"],
@@ -111,7 +111,7 @@ async def chat(
             "moderation_policy": {"mode": "shadow"},
             "escalation_policy": {},
             "budgets": {},
-        }
+        })
 
         result = await runtime.run(event, profile)
         response_text = result.get("response_text", "I'm a fake model response.")

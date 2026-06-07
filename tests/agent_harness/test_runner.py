@@ -23,6 +23,9 @@ def _make_session() -> AsyncMock:
     scalar_result.scalar_one_or_none.return_value = None
     session.execute.return_value = scalar_result
 
+    # Session.add is sync on AsyncSession; keep it sync to avoid unawaited coroutine warnings.
+    session.add = MagicMock()
+
     # Make flush and commit no-ops
     session.flush = AsyncMock()
     session.commit = AsyncMock()
@@ -92,6 +95,28 @@ class TestHarnessRunner:
             runner = HarnessRunner()
             result, envelope = await runner.run_event(session, processing_row, chat_event)
             assert result.get("agent_run_id") is not None
+            assert envelope is not None
+            assert envelope.agent_run_id == result.get("agent_run_id")
+
+        anyio.run(_run)
+
+    def test_runner_enforces_model_call_limit(self) -> None:
+        """ModelPolicyMiddleware should deny runs before model execution when over budget."""
+
+        async def _run() -> None:
+            session = _make_session()
+            processing_row = _make_processing_row()
+            chat_event = _make_chat_event(text_preview="hello")
+            runner = HarnessRunner()
+            default_profile = runner._build_profile(processing_row.tenant_id, chat_event)
+            default_profile["model_policy"] = {"max_calls": 0}
+            runner._build_profile = MagicMock(return_value=default_profile)
+
+            result, envelope = await runner.run_event(session, processing_row, chat_event)
+
+            assert result.get("status") == "denied"
+            assert envelope is None
+            assert result.get("model_calls_made") == []
 
         anyio.run(_run)
 

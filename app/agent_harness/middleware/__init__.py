@@ -12,11 +12,7 @@ from app.agent_harness.middleware.tool_guard import ToolGuardMiddleware
 from app.agent_harness.middleware.risk_policy import RiskPolicyMiddleware
 from app.agent_harness.middleware.human_approval import HumanApprovalMiddleware
 from app.agent_harness.middleware.observability import ObservabilityMiddleware
-from app.agent_harness.middleware.stack import (
-    build_default_middleware_stack,
-    execute_middleware_chain,
-    execute_wrap_middleware_chain,
-)
+from app.agent_harness.middleware.stack import build_default_middleware_stack
 
 __all__ = [
     "Middleware",
@@ -32,6 +28,4 @@ __all__ = [
     "HumanApprovalMiddleware",
     "ObservabilityMiddleware",
     "build_default_middleware_stack",
-    "execute_middleware_chain",
-    "execute_wrap_middleware_chain",
 ]

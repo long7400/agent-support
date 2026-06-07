@@ -4,6 +4,7 @@ Unit tests only — no real DB. Verifies model construction, field types,
 and repository method call signatures.
 """
 
+from inspect import signature
 from uuid import uuid4
 
 
@@ -145,28 +146,36 @@ class TestGraphCheckpointMetadataModel:
 
 
 class TestRepositorySignatures:
-    """Repository method call signatures — verifies they accept expected args."""
+    """Repository methods keep the keyword contracts used by the runner."""
 
     def test_create_agent_run_signature(self) -> None:
-        """create_agent_run accepts all documented keyword arguments."""
-        assert callable(create_agent_run)
+        """create_agent_run exposes fields needed to create top-level records."""
+        params = signature(create_agent_run).parameters
+        assert list(params)[:2] == ["session", "tenant_id"]
+        assert {"processing_outbox_id", "trace_id", "input_event_id", "harness_version"} <= set(params)
 
     def test_complete_agent_run_signature(self) -> None:
-        """complete_agent_run accepts agent_run_id and status."""
-        assert callable(complete_agent_run)
+        """complete_agent_run exposes status, preview, and latency fields."""
+        params = signature(complete_agent_run).parameters
+        assert list(params)[:3] == ["session", "agent_run_id", "status"]
+        assert {"final_response_preview", "latency_ms"} <= set(params)
 
     def test_create_step_signature(self) -> None:
-        """create_agent_run_step accepts all documented keyword arguments."""
-        assert callable(create_agent_run_step)
+        """create_agent_run_step exposes ordering and step identity fields."""
+        params = signature(create_agent_run_step).parameters
+        assert {"tenant_id", "agent_run_id", "step_order", "step_type", "step_name"} <= set(params)
 
     def test_complete_step_signature(self) -> None:
-        """complete_agent_run_step accepts step_id and status."""
-        assert callable(complete_agent_run_step)
+        """complete_agent_run_step exposes status and bounded summary fields."""
+        params = signature(complete_agent_run_step).parameters
+        assert {"step_id", "status", "redacted_summary"} <= set(params)
 
     def test_create_model_call_signature(self) -> None:
-        """create_model_call accepts all documented keyword arguments."""
-        assert callable(create_model_call)
+        """create_model_call exposes provider, model, and prompt fields."""
+        params = signature(create_model_call).parameters
+        assert {"tenant_id", "agent_run_id", "provider", "model_name", "prompt_version"} <= set(params)
 
     def test_create_checkpoint_metadata_signature(self) -> None:
-        """create_checkpoint_metadata accepts all documented keyword arguments."""
-        assert callable(create_checkpoint_metadata)
+        """create_checkpoint_metadata exposes checkpoint ownership fields."""
+        params = signature(create_checkpoint_metadata).parameters
+        assert {"tenant_id", "thread_id", "agent_run_id", "checkpoint_id", "checkpoint_data"} <= set(params)

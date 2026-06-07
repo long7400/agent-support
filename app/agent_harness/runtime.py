@@ -12,6 +12,8 @@ Lifecycle:
 from __future__ import annotations
 
 from datetime import datetime, UTC
+from collections.abc import Awaitable, Callable
+from typing import cast
 from uuid import UUID, uuid4
 
 from app.agent_harness.contracts import (
@@ -47,7 +49,6 @@ class AgentHarnessRuntime:
             middleware_stack: Ordered list of Middleware instances.
         """
         self._model = model
-        self._capability_registry = capability_registry
         self._middleware_stack = middleware_stack
         self._run_mode = "shadow"
 
@@ -55,12 +56,14 @@ class AgentHarnessRuntime:
         self,
         event: TrustedRuntimeEvent,
         profile: TenantHarnessProfile,
+        agent_run_id: UUID | None = None,
     ) -> HarnessResult:
         """Execute one harness run.
 
         Args:
             event: The trusted runtime event to process.
             profile: Tenant harness profile with policy settings.
+            agent_run_id: Optional persisted run ID to reuse.
 
         Returns:
             HarnessResult with final response, policy decisions, and audit refs.
@@ -69,24 +72,24 @@ class AgentHarnessRuntime:
             TenantDisabledError: If tenant is disabled/suspended.
             HarnessRunError: On unrecoverable run failure.
         """
-        agent_run_id = uuid4()
+        agent_run_id = agent_run_id or uuid4()
         start_time = datetime.now(UTC)
 
         # 1. Hydrate state
-        state = self._hydrate_state(event, agent_run_id)
+        state = self._hydrate_state(event, agent_run_id, profile)
         context = self._build_context(event, agent_run_id)
 
-        # 2. Run middleware before_agent (only if hook exists)
-        for mw in self._middleware_stack:
-            hook = getattr(mw, "before_agent", None)
-            if hook is not None:
-                await hook(state, context)
-
-        # 3. Record run step metadata
-        await self._record_step(state, context, "middleware", "before_agent", "completed")
-
-        # 4. Loop: model call -> tool calls
         try:
+            # 2. Run middleware before_agent (only if hook exists)
+            for mw in self._middleware_stack:
+                hook = getattr(mw, "before_agent", None)
+                if hook is not None:
+                    await hook(state, context)
+
+            # 3. Record run step metadata
+            await self._record_step(state, context, "middleware", "before_agent", "completed")
+
+            # 4. Loop: model call -> tool calls
             model_response = await self._run_model_loop(state, context)
         except TenantDisabledError:
             return self._build_denied_result(agent_run_id, state)
@@ -105,28 +108,30 @@ class AgentHarnessRuntime:
                 await hook(state, context)
 
         # 7. Build result
-        int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+        latency_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
         return HarnessResult(
             agent_run_id=agent_run_id,
             response_text=model_response,
-            response_metadata=state.get("final_response", {}),
+            response_metadata=state.get("final_response") or {},
             policy_decisions=state.get("policy_decisions", []),
             tool_calls_made=state.get("tool_results", []),
             model_calls_made=state.get("model_calls_made", []),
             status="completed",
             audit_refs=state.get("audit_refs", []),
+            latency_ms=latency_ms,
         )
 
     def _hydrate_state(
         self,
         event: TrustedRuntimeEvent,
         agent_run_id: UUID,
+        profile: TenantHarnessProfile,
     ) -> AgentRunState:
         """Hydrate AgentRunState from a TrustedRuntimeEvent."""
         messages = [
             {"role": "user", "content": event.get("text_preview", "")},
         ]
-        state: AgentRunState = {
+        state = cast(AgentRunState, {
             "trace_id": str(event.get("event_id", "")),
             "tenant_id": event.get("tenant_id"),
             "input_event_id": str(event.get("chat_event_id", "")),
@@ -137,7 +142,7 @@ class AgentHarnessRuntime:
             "message_id": str(event.get("chat_event_id", "")),
             "inbound_text_preview": event.get("text_preview", ""),
             "messages": messages,
-            "tenant_context": {},
+            "tenant_context": {"profile": profile},
             "platform_context": {},
             "memory_context": {},
             "available_capabilities": [],
@@ -147,7 +152,7 @@ class AgentHarnessRuntime:
             "budgets": {},
             "final_response": None,
             "audit_refs": [str(agent_run_id)],
-        }
+        })
         return state
 
     def _build_context(
@@ -156,14 +161,14 @@ class AgentHarnessRuntime:
         agent_run_id: UUID,
     ) -> HarnessContext:
         """Build HarnessContext from event data."""
-        return {
+        return cast(HarnessContext, {
             "trace_id": str(event.get("event_id", "")),
             "tenant_id": event.get("tenant_id"),
             "deadline_ms": 30000,
             "run_mode": self._run_mode,
             "services": {},
             "redaction_policy": {},
-        }
+        })
 
     async def _run_model_loop(
         self,
@@ -181,11 +186,26 @@ class AgentHarnessRuntime:
             if hook is not None:
                 await hook(state, context)
 
-        # Delegate to model via wrap_model_call
-        async def _model_call_fn() -> str:
+        async def model_call() -> str:
             return await self._model.generate(state, context)
 
-        result = await self._model.generate(state, context)
+        wrapped_call: Callable[[], Awaitable[str]] = model_call
+        for mw in reversed(self._middleware_stack):
+            hook = getattr(mw, "wrap_model_call", None)
+            if hook is None:
+                continue
+
+            next_call = wrapped_call
+
+            async def call_with_middleware(
+                hook=hook,
+                next_call: Callable[[], Awaitable[str]] = next_call,
+            ) -> str:
+                return cast(str, await hook(state, context, next_call))
+
+            wrapped_call = call_with_middleware
+
+        result = await wrapped_call()
 
         # Run after_model hooks (only if hook exists)
         for mw in self._middleware_stack:
@@ -228,6 +248,7 @@ class AgentHarnessRuntime:
             model_calls_made=[],
             status="denied",
             audit_refs=state.get("audit_refs", []),
+            latency_ms=0,
         )
 
     def _build_policy_denied_result(
@@ -246,4 +267,5 @@ class AgentHarnessRuntime:
             model_calls_made=[],
             status="denied",
             audit_refs=state.get("audit_refs", []),
+            latency_ms=0,
         )
