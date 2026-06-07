@@ -4,7 +4,7 @@ import importlib
 
 import pytest
 from sqlalchemy import CheckConstraint, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeMeta
 
 from app.models.base import Base
@@ -120,6 +120,18 @@ class TestKnowledgeSource:
         """KnowledgeSource has a tenant_id index."""
         assert "ix_knowledge_sources_tenant_id" in _get_index_names(KnowledgeSource)
 
+    def test_slug_unique_per_tenant(self) -> None:
+        """KnowledgeSource slugs are stable tenant-scoped identifiers."""
+        constraints = {
+            c.name for c in KnowledgeSource.__table__.constraints
+            if isinstance(c, UniqueConstraint)
+        }
+        assert "uq_knowledge_sources_tenant_slug" in constraints
+
+    def test_metadata_is_jsonb(self) -> None:
+        """Model type matches the JSONB migration type."""
+        assert isinstance(KnowledgeSource.__table__.columns["metadata_json"].type, JSONB)
+
 
 # ── KnowledgeSourceVersion ─────────────────────────────────────────────
 
@@ -158,6 +170,10 @@ class TestKnowledgeSourceVersion:
         col = KnowledgeSourceVersion.__table__.columns["tenant_id"]
         assert isinstance(col.type, PG_UUID)
         assert col.foreign_keys
+
+    def test_metadata_is_jsonb(self) -> None:
+        """Model type matches the JSONB migration type."""
+        assert isinstance(KnowledgeSourceVersion.__table__.columns["metadata_json"].type, JSONB)
 
     def test_source_id_is_uuid_fk(self) -> None:
         """KnowledgeSourceVersion.source_id is a UUID FK to knowledge_sources."""
@@ -378,3 +394,15 @@ def test_alembic_upgrade_and_downgrade() -> None:
 
     # Re-upgrade to leave head in place for subsequent tests
     command.upgrade(alembic_cfg, "head")
+
+
+def test_json_columns_are_jsonb() -> None:
+    """All knowledge JSON columns match the migration's PostgreSQL JSONB type."""
+    columns = [
+        KnowledgeDocument.__table__.columns["metadata_json"],
+        KnowledgeChunk.__table__.columns["lexical_tokens"],
+        KnowledgeChunk.__table__.columns["metadata_json"],
+        KnowledgeSyncJob.__table__.columns["error_log"],
+        KnowledgeIngestAudit.__table__.columns["detail_json"],
+    ]
+    assert all(isinstance(column.type, JSONB) for column in columns)

@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, JSON, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -41,11 +41,11 @@ class KnowledgeSyncJob(TimestampMixin, Base):
     )
     status: Mapped[str] = mapped_column(String, nullable=False, default="queued")
     idempotency_key: Mapped[str] = mapped_column(String, nullable=False)
-    started_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(JSONB, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(JSONB, nullable=True)
     documents_processed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     chunks_embedded: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vectors_upserted: Mapped[int | None] = mapped_column(Integer, nullable=True)
     lexical_indexed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     errors_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    error_log: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    error_log: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)

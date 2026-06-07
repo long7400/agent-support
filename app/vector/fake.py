@@ -67,8 +67,10 @@ def _is_empty_tenant(tenant_id: UUID | None) -> bool:
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Compute cosine similarity between two vectors."""
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    """Compute cosine similarity between equal-dimension vectors."""
+    if len(a) != len(b):
+        raise ValueError("vector dimensions must match")
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(y * y for y in b))
     if norm_a == 0.0 or norm_b == 0.0:
@@ -136,14 +138,14 @@ class FakeEmbeddingProvider:
         return self._deterministic_vector(text)
 
     def _deterministic_vector(self, text: str) -> list[float]:
-        """Produce a fixed-dimension vector from text via SHA-256."""
-        digest = hashlib.sha256(text.encode("utf-8")).digest()
-        # Stretch the 32 bytes across self._dimension floats in [0, 1]
+        """Produce a fixed-dimension vector from repeated SHA-256 blocks."""
         out: list[float] = []
-        for i in range(self._dimension):
-            byte_val = digest[i % 32]
-            out.append(byte_val / 255.0)
-        return out
+        block_index = 0
+        while len(out) < self._dimension:
+            digest = hashlib.sha256(f"{block_index}:{text}".encode("utf-8")).digest()
+            out.extend(byte_val / 255.0 for byte_val in digest)
+            block_index += 1
+        return out[: self._dimension]
 
 
 # ---------------------------------------------------------------------------

@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, JSON, String
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -30,6 +30,7 @@ class KnowledgeSource(TimestampMixin, Base):
             "default_visibility IN ('public','private','restricted')",
             name="ck_knowledge_sources_default_visibility",
         ),
+        UniqueConstraint("tenant_id", "slug", name="uq_knowledge_sources_tenant_slug"),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -42,6 +43,6 @@ class KnowledgeSource(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String, nullable=False, default="active")
     default_visibility: Mapped[str] = mapped_column(String, nullable=False, default="private")
     locale: Mapped[str | None] = mapped_column(String, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_by_actor_type: Mapped[str] = mapped_column(String, nullable=False, default="operator")
     created_by_actor_id: Mapped[str] = mapped_column(String, nullable=False, default="system")

@@ -24,9 +24,9 @@ class RetrievalQuery(BaseModel):
     budget, and visibility before the provider is called.
     """
 
-    tenant_id: UUID | None = Field(
-        default=None,
-        description="Mandatory tenant scope.  Providers MUST reject None/zero.",
+    tenant_id: UUID = Field(
+        ...,
+        description="Mandatory tenant scope. Providers MUST reject the zero UUID.",
     )
     query_text: str = Field(default="", description="Raw user query text.")
     embedding: list[float] = Field(

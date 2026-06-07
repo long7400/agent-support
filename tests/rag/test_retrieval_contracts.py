@@ -148,7 +148,7 @@ class TestFakeVectorSearchProvider:
     def test_returns_empty_when_no_match(self) -> None:
         """Search returns empty list when no items match."""
         provider = FakeVectorSearchProvider()
-        result = asyncio_run(provider.search([0.1, 0.2], tenant_id=uuid4()))
+        result = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=uuid4()))
         assert result == []
 
     def test_returns_results_filtered_by_tenant(self) -> None:
@@ -159,7 +159,7 @@ class TestFakeVectorSearchProvider:
         index = [_make_vector(chunk_id=chunk, tenant_id=tid_a)]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(provider.search([0.1, 0.2], tenant_id=tid_b))
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid_b))
         assert results == []
 
     def test_returns_results_for_correct_tenant(self) -> None:
@@ -169,7 +169,7 @@ class TestFakeVectorSearchProvider:
         index = [_make_vector(chunk_id=chunk, tenant_id=tid)]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(provider.search([0.1, 0.2], tenant_id=tid))
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid))
         assert len(results) == 1
         assert results[0].chunk_id == chunk
 
@@ -179,7 +179,7 @@ class TestFakeVectorSearchProvider:
         index = [_make_vector(chunk_id=uuid4(), tenant_id=tid) for _ in range(20)]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(provider.search([0.1, 0.2], tenant_id=tid, candidate_top_k=5))
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid, candidate_top_k=5))
         assert len(results) <= 5
 
     @pytest.mark.parametrize("bad_tenant", [None, UUID(int=0)])
@@ -187,7 +187,7 @@ class TestFakeVectorSearchProvider:
         """Search raises ValueError when tenant_id is None or zero."""
         provider = FakeVectorSearchProvider()
         with pytest.raises(ValueError, match="tenant_id"):
-            asyncio_run(provider.search([0.1, 0.2], tenant_id=bad_tenant))  # type: ignore[arg-type]
+            asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=bad_tenant))  # type: ignore[arg-type]
 
     def test_visibility_filter_respected(self) -> None:
         """Items with disallowed visibility are excluded."""
@@ -201,7 +201,7 @@ class TestFakeVectorSearchProvider:
         provider = FakeVectorSearchProvider(index)
 
         results = asyncio_run(
-            provider.search([0.1, 0.2], tenant_id=tid, visibility=["public"])
+            provider.search([0.1, 0.2, 0.3], tenant_id=tid, visibility=["public"])
         )
         assert {r.chunk_id for r in results} == {public_chunk}
 
@@ -216,7 +216,7 @@ class TestFakeVectorSearchProvider:
         ]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(provider.search([0.1, 0.2], tenant_id=tid, active_only=True))
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid, active_only=True))
         assert {r.chunk_id for r in results} == {active_chunk}
 
     def test_active_only_false_includes_inactive(self) -> None:
@@ -227,7 +227,7 @@ class TestFakeVectorSearchProvider:
         ]
         provider = FakeVectorSearchProvider(index)
 
-        results = asyncio_run(provider.search([0.1, 0.2], tenant_id=tid, active_only=False))
+        results = asyncio_run(provider.search([0.1, 0.2, 0.3], tenant_id=tid, active_only=False))
         assert len(results) == 1
 
     def test_locale_filter_respected(self) -> None:
@@ -242,9 +242,39 @@ class TestFakeVectorSearchProvider:
         provider = FakeVectorSearchProvider(index)
 
         results = asyncio_run(
-            provider.search([0.1, 0.2], tenant_id=tid, locale="en")
+            provider.search([0.1, 0.2, 0.3], tenant_id=tid, locale="en")
         )
         assert {r.chunk_id for r in results} == {en_chunk}
+
+    def test_source_allowlist_filter_respected(self) -> None:
+        """Items outside the source allowlist are excluded."""
+        tid = uuid4()
+        allowed_source = uuid4()
+        blocked_source = uuid4()
+        allowed_chunk = uuid4()
+        blocked_chunk = uuid4()
+        index = [
+            _make_vector(chunk_id=allowed_chunk, tenant_id=tid, source_id=allowed_source),
+            _make_vector(chunk_id=blocked_chunk, tenant_id=tid, source_id=blocked_source),
+        ]
+        provider = FakeVectorSearchProvider(index)
+
+        results = asyncio_run(
+            provider.search(
+                [0.1, 0.2, 0.3],
+                tenant_id=tid,
+                source_allowlist=[allowed_source],
+            )
+        )
+        assert {r.chunk_id for r in results} == {allowed_chunk}
+
+    def test_vector_dimension_mismatch_raises(self) -> None:
+        """Mismatched query/index vector dimensions fail loudly."""
+        tid = uuid4()
+        provider = FakeVectorSearchProvider([_make_vector(tenant_id=tid)])
+
+        with pytest.raises(ValueError, match="vector dimensions"):
+            asyncio_run(provider.search([0.1, 0.2], tenant_id=tid))
 
 
 # ── FakeKeywordSearchProvider ──────────────────────────────────────────
@@ -306,6 +336,24 @@ class TestFakeKeywordSearchProvider:
 
         results = asyncio_run(provider.search("hello", tenant_id=tid, candidate_top_k=3))
         assert len(results) <= 3
+
+    def test_source_allowlist_filter_respected(self) -> None:
+        """Items outside the source allowlist are excluded."""
+        tid = uuid4()
+        allowed_source = uuid4()
+        blocked_source = uuid4()
+        allowed_chunk = uuid4()
+        blocked_chunk = uuid4()
+        index = [
+            _make_keyword_item(chunk_id=allowed_chunk, tenant_id=tid, source_id=allowed_source, text="hello"),
+            _make_keyword_item(chunk_id=blocked_chunk, tenant_id=tid, source_id=blocked_source, text="hello"),
+        ]
+        provider = FakeKeywordSearchProvider(index)
+
+        results = asyncio_run(
+            provider.search("hello", tenant_id=tid, source_allowlist=[allowed_source])
+        )
+        assert {r.chunk_id for r in results} == {allowed_chunk}
 
 
 # ── FakeHybridRetriever ────────────────────────────────────────────────
@@ -389,6 +437,36 @@ class TestFakeHybridRetriever:
 
         both_scores = {r.chunk_id: r.score for r in results}
         assert both_scores.get(both_chunk, 0) > both_scores.get(vec_only_chunk, 0)
+
+    def test_source_allowlist_filter_respected(self) -> None:
+        """Hybrid retrieval applies the source allowlist to both branches."""
+        tid = uuid4()
+        allowed_source = uuid4()
+        blocked_source = uuid4()
+        allowed_chunk = uuid4()
+        blocked_chunk = uuid4()
+        vec_index = [
+            _make_vector(chunk_id=allowed_chunk, tenant_id=tid, source_id=allowed_source),
+            _make_vector(chunk_id=blocked_chunk, tenant_id=tid, source_id=blocked_source),
+        ]
+        kw_index = [
+            _make_keyword_item(chunk_id=allowed_chunk, tenant_id=tid, source_id=allowed_source, text="alpha"),
+            _make_keyword_item(chunk_id=blocked_chunk, tenant_id=tid, source_id=blocked_source, text="alpha"),
+        ]
+        hybrid = FakeHybridRetriever(
+            FakeVectorSearchProvider(vec_index),
+            FakeKeywordSearchProvider(kw_index),
+        )
+
+        results = asyncio_run(
+            hybrid.search(
+                query_text="alpha",
+                query_embedding=[0.1, 0.2, 0.3],
+                tenant_id=tid,
+                source_allowlist=[allowed_source],
+            )
+        )
+        assert {r.chunk_id for r in results} == {allowed_chunk}
 
     def test_final_top_k_bounded(self) -> None:
         """Results are bounded by final_top_k."""
@@ -541,8 +619,8 @@ class TestRetrievalQuery:
     """Pydantic model shape and defaults."""
 
     def test_defaults(self) -> None:
-        """RetrievalQuery has sensible defaults."""
-        q = RetrievalQuery()
+        """RetrievalQuery has sensible defaults after tenant is supplied."""
+        q = RetrievalQuery(tenant_id=uuid4())
         assert q.retrieval_mode == RetrievalMode.hybrid
         assert q.candidate_top_k == 50
         assert q.final_top_k == 10
@@ -562,14 +640,20 @@ class TestRetrievalQuery:
         with pytest.raises((ValueError, RuntimeError)):
             q.tenant_id = uuid4()  # type: ignore[misc]
 
+    def test_requires_tenant_id(self) -> None:
+        """RetrievalQuery fails validation without tenant_id."""
+        with pytest.raises(ValueError):
+            RetrievalQuery()
+
     def test_candidate_top_k_bounds(self) -> None:
         """candidate_top_k is clamped to [1, 500]."""
-        RetrievalQuery(candidate_top_k=1)
-        RetrievalQuery(candidate_top_k=500)
+        tid = uuid4()
+        RetrievalQuery(tenant_id=tid, candidate_top_k=1)
+        RetrievalQuery(tenant_id=tid, candidate_top_k=500)
         with pytest.raises(ValueError):
-            RetrievalQuery(candidate_top_k=0)
+            RetrievalQuery(tenant_id=tid, candidate_top_k=0)
         with pytest.raises(ValueError):
-            RetrievalQuery(candidate_top_k=501)
+            RetrievalQuery(tenant_id=tid, candidate_top_k=501)
 
 
 # ── Async helper ─────────────────────────────────────────────────────

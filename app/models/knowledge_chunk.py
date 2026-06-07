@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, JSON, String, Text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -55,5 +55,5 @@ class KnowledgeChunk(TimestampMixin, Base):
     visibility: Mapped[str] = mapped_column(String, nullable=False, default="private")
     locale: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    lexical_tokens: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    lexical_tokens: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)

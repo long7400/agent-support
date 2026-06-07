@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, JSON, String
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -49,7 +49,7 @@ class KnowledgeSourceVersion(TimestampMixin, Base):
     document_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String, nullable=True)
     embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     activated_at: Mapped[datetime | None] = mapped_column(nullable=True)
     tombstoned_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_by_actor_type: Mapped[str] = mapped_column(String, nullable=False, default="operator")

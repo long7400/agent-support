@@ -65,6 +65,7 @@ def upgrade() -> None:
         sa.CheckConstraint("default_visibility IN ('public','private','restricted')", name="ck_knowledge_sources_default_visibility"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("tenant_id", "slug", name="uq_knowledge_sources_tenant_slug"),
     )
     op.create_index("idx_knowledge_sources_tenant", "knowledge_sources", ["tenant_id"], unique=False)
 

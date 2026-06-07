@@ -1,4 +1,4 @@
-"""Query rewriting and cache-key utilities for the knowledge retrieval layer.
+"""Knowledge retrieval contracts, query rewriting, and cache utilities.
 
 Provides the ``QueryRewriter`` protocol and a deterministic rewriter
 implementation, plus cache-key helpers for both embedding and retrieval

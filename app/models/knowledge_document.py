@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, Integer, JSON, String
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -32,4 +32,4 @@ class KnowledgeDocument(TimestampMixin, Base):
     file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     chunk_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
