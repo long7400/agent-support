@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 
 from app.knowledge.chunker import chunk_document
 from app.knowledge.markdown_parser import extract_markdown_text, extract_markdown_zip
+from app.infra.observability import record_rag_observability_event
 from app.knowledge.metadata import enrich_chunk
 from app.vector.fake import (
     FakeEmbeddingProvider,
@@ -134,11 +135,31 @@ class InMemoryKnowledgeIngestService:
             job.vectors_upserted = len(enriched)
             job.lexical_indexed = len(enriched)
             job.status = "succeeded"
+            record_rag_observability_event(
+                "rag.ingest.completed",
+                tenant_id=str(job.tenant_id),
+                source_id=str(job.source_id),
+                source_version_id=str(job.source_version_id),
+                job_id=str(job.id),
+                status=job.status,
+                documents_processed=job.documents_processed,
+                chunks_embedded=job.chunks_embedded,
+                vectors_upserted=job.vectors_upserted,
+                lexical_indexed=job.lexical_indexed,
+            )
         except Exception as exc:  # pragma: no cover - defensive state transition
             version.status = "failed"
             version.is_active = False
             job.status = "failed"
             job.errors.append(str(exc))
+            record_rag_observability_event(
+                "rag.ingest.failed",
+                tenant_id=str(job.tenant_id),
+                source_id=str(job.source_id),
+                source_version_id=str(job.source_version_id),
+                job_id=str(job.id),
+                status=job.status,
+            )
         finally:
             job.completed_at = datetime.now(UTC)
         return job
@@ -172,8 +193,9 @@ class InMemoryKnowledgeIngestService:
         self.vector_index = [item for item in self.vector_index if item.source_version_id != job.source_version_id]
         self.keyword_index = [item for item in self.keyword_index if item.source_version_id != job.source_version_id]
         for chunk, embedding in zip(chunks, embeddings, strict=True):
-            chunk_id = UUID(str(chunk["chunk_id"]))
             payload = dict(chunk)
+            chunk_id = UUID(str(payload.get("chunk_id") or uuid5(NAMESPACE_URL, str(chunk["content_hash"]))))
+            payload["chunk_id"] = str(chunk_id)
             payload["is_active"] = active
             self.vector_index.append(
                 _IndexedVector(

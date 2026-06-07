@@ -11,6 +11,7 @@ from app.infra.cache import (
 )
 from app.infra.config import settings
 from app.infra.logging import logger
+from app.models.long_term_memory import MemoryRetrievalPolicy, memory_result_allowed, memory_result_text
 
 
 class MemoryService:
@@ -64,36 +65,47 @@ class MemoryService:
         await self._get_memory()
         logger.info("memory_service_initialized")
 
-    async def search(self, user_id: str | None, query: str) -> str:
-        """Search relevant memories for a user.
-
-        Checks cache first; on miss, queries mem0 and caches the result.
-
-        Returns formatted memory string, or empty string on failure or when
-        no user_id is supplied (anonymous sessions skip long-term memory
-        rather than pooling under a shared partition).
-        """
-        if user_id is None or not settings.LONG_TERM_MEMORY_ENABLED:
+    async def search(
+        self,
+        user_id: str | None,
+        query: str,
+        *,
+        tenant_id: str | None = None,
+        scope: str | None = None,
+        visibility: list[str] | tuple[str, ...] | None = None,
+    ) -> str:
+        """Search relevant memories only after tenant policy can be enforced."""
+        policy = MemoryRetrievalPolicy.from_context(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            scope=scope,
+            visibility=visibility,
+        )
+        if policy is None or not settings.LONG_TERM_MEMORY_ENABLED:
             return ""
         try:
-            # Check cache first
-            key = cache_key("memory", str(user_id), query)
+            key = cache_key(
+                "memory", policy.tenant_id, policy.user_id, policy.scope, ",".join(policy.visibility), query
+            )
             cached = await cache_service.get(key)
             if cached is not None:
-                logger.debug("memory_search_cache_hit", user_id=user_id)
+                logger.debug("memory_search_cache_hit", user_id=policy.user_id, tenant_id=policy.tenant_id)
                 return cached
 
             memory = await self._get_memory()
-            results = await memory.search(user_id=str(user_id), query=query)
-            result = "\n".join([f"* {r['memory']}" for r in results["results"]])
+            results = await memory.search(user_id=policy.user_id, query=query)
+            raw_results = results.get("results", []) if isinstance(results, dict) else []
+            filtered = [r for r in raw_results if isinstance(r, dict) and memory_result_allowed(r, policy)]
+            result = "\n".join([f"* {memory_result_text(r)}" for r in filtered if memory_result_text(r)])
 
-            # Cache successful results
             if result:
                 await cache_service.set(key, result)
 
             return result
         except Exception as e:
-            logger.error("failed_to_get_relevant_memory", error=str(e), user_id=user_id, query=query)
+            logger.error(
+                "failed_to_get_relevant_memory", error=str(e), user_id=user_id, tenant_id=tenant_id, query=query
+            )
             return ""
 
     async def add(self, user_id: str | None, messages: list[dict], metadata: dict | None = None) -> None:
