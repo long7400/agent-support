@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.agent_harness.capabilities.rag_search import RagSearchCapability
 from app.agent_harness.contracts import AgentRunState, HarnessContext
+from app.knowledge.retrieval import ReciprocalRankFusionHybridRetriever
+from app.vector.fake import FakeEmbeddingProvider, FakeKeywordSearchProvider, FakeVectorSearchProvider
 
 
 class FakeCapabilityRegistry:
@@ -14,10 +17,15 @@ class FakeCapabilityRegistry:
     Full capability manifest loading arrives in Phase 4.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, rag_search: RagSearchCapability | None = None) -> None:
         """Initialize with a hardcoded capability map."""
+        default_rag = RagSearchCapability(
+            ReciprocalRankFusionHybridRetriever(FakeVectorSearchProvider(), FakeKeywordSearchProvider()),
+            FakeEmbeddingProvider(dimension=16),
+        )
         self._capabilities: dict[str, Any] = {
             "fake_search": self._fake_search,
+            "rag.search": rag_search or default_rag,
             "official_links": self._official_links,
             "disallowed_tool": self._disallowed_tool,
         }
@@ -51,7 +59,10 @@ class FakeCapabilityRegistry:
             return {"error": f"Capability '{name}' not found in registry", "denied": True}
 
         callable_fn = self._capabilities[name]
-        result = await callable_fn(args)
+        if isinstance(callable_fn, RagSearchCapability):
+            result = await callable_fn(args, tenant_id=context.get("tenant_id"))
+        else:
+            result = await callable_fn(args)
 
         # Record tool call
         tool_calls = state.get("tool_results", [])
