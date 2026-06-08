@@ -46,7 +46,7 @@ Dockerfile
 docker-compose.yml
 
 # Documentation
-docs/
+docs-spec/
 *.md
 !README.md
 
