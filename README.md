@@ -1,121 +1,241 @@
-# FastAPI LangGraph Agent Template
+# repository-harness
 
-> **Agent Support docs baseline (2026-06-01):** this root README still documents the inherited FastAPI/LangGraph template. The current product baseline and reading order are in [docs/README.md](docs-spec/README.md). If this file conflicts with numbered docs under `docs/`, the numbered docs win. Phase 0 owns rebranding/updating this README.
+Turn any software repo into an agent-ready workspace.
 
-A production-ready template for building AI agent backends with FastAPI and LangGraph. Handles the hard parts — stateful conversations, long-term memory, tool calling, observability, rate limiting, auth — so you can focus on your agent logic.
+`repository-harness` is a repository-level operating harness for Claude Code,
+Codex, Cursor, and other coding agents. It gives agents the missing project
+context they need before they change code: where to start, what the product
+contract says, how risky the work is, what proof is required, and which
+decisions future agents should inherit.
 
-**Built for AI engineers** who want a solid foundation, not a tutorial project.
+The app is what users touch. The harness is what agents touch.
 
-## What's included
+## Why Star This Repo
 
-- **LangGraph** stateful agent with checkpointing, tool calling, and human-in-the-loop support
-- **Long-term memory** via mem0 + pgvector — semantic search per user, cache-backed
-- **LLM service** with circular model fallback, exponential backoff retries, and total timeout budget
-- **Langfuse** tracing on all LLM calls; Prometheus metrics + Grafana dashboards
-- **JWT auth** with session management; rate limiting via slowapi
-- **Alembic** migrations; optional Valkey/Redis cache layer
-- **Structured logging** with request/session/user context on every line
+Star this repo if you want practical, reusable patterns for making AI-assisted
+software development more reliable, inspectable, and easier for humans to steer.
 
-## Quickstart
+This project is exploring a simple idea:
+
+> Coding agents do not only need better prompts. They need better repositories.
+
+## The Problem
+
+Most repos are built for humans reading code in a familiar codebase. Coding
+agents usually enter with only a chat prompt and a shallow snapshot of files.
+That leads to common failure modes:
+
+- The agent edits code before understanding product intent.
+- Important constraints live only in chat history or in someone's head.
+- Validation expectations are vague or discovered too late.
+- Architecture tradeoffs are repeated instead of inherited.
+- Large requests do not get broken into reviewable story-sized work.
+
+## The Harness Approach
+
+A repository starts to have a harness when it helps an agent answer practical
+engineering questions without relying only on chat history:
+
+- What should I read first?
+- What type of work is this?
+- Which product contract does it affect?
+- How risky is the change?
+- What proof will show the work is done?
+- What decision or lesson should future agents inherit?
+
+In this repo, those answers live in:
+
+- `AGENTS.md` — the stable agent shim with local project notes and Harness
+  doc links.
+- `docs/HARNESS.md` — the human-agent collaboration model.
+- `docs/FEATURE_INTAKE.md` — tiny, normal, and high-risk work classification.
+- `docs/ARCHITECTURE.md` — architecture discovery and boundary rules.
+- `docs/TEST_MATRIX.md` — behavior-to-proof validation expectations.
+- `docs/stories/` — story packets and backlog items.
+- `docs/decisions/` — durable decisions and tradeoffs.
+- `docs/templates/` — reusable spec, story, decision, and validation templates.
+
+OpenAI describes this shift as an agent-first world where humans steer and
+agents execute:
+
+https://openai.com/index/harness-engineering/
+
+## Install Harness Into A Project
+
+From a target project directory, run:
 
 ```bash
-git clone <repo-url> my-agent && cd my-agent
-cp .env.example .env.development   # fill in your keys
-make install
-make docker-up                     # starts API + PostgreSQL
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --yes
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the interactive API.
+On Windows PowerShell, run:
 
-> For local development without Docker see [docs/getting-started.md](docs-spec/getting-started.md).
-
-## Documentation
-
-| Guide | What it covers |
-|---|---|
-| [Getting Started](docs-spec/getting-started.md) | Prerequisites, local setup, first API call |
-| [Architecture](docs-spec/architecture.md) | System design, request flow, component diagrams |
-| [Configuration](docs-spec/configuration.md) | All environment variables with defaults |
-| [Authentication](docs-spec/authentication.md) | JWT flow, sessions, endpoint reference |
-| [Database & Migrations](docs-spec/database.md) | Schema, Alembic migrations, pgvector |
-| [LLM Service](docs-spec/llm-service.md) | Models, retries, fallback, timeout budget |
-| [Memory](docs-spec/memory.md) | mem0 long-term memory, cache layer |
-| [Observability](docs-spec/observability.md) | Langfuse, structured logging, Prometheus, profiling |
-| [Evaluation](docs-spec/evaluation.md) | Eval framework, custom metrics, reports |
-| [Docker](docs-spec/docker.md) | Docker, Compose, full monitoring stack |
-
-## Project structure
-
+```powershell
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Yes
 ```
-app/
-  api/v1/          # Route handlers
-  core/
-    langgraph/     # Agent graph + tools
-    prompts/       # System prompt template
-    cache.py       # Valkey/Redis + in-memory fallback
-    config.py      # Settings
-    middleware.py  # Metrics, logging context, profiling
-    limiter.py     # Rate limiting
-  models/          # SQLModel ORM models
-  schemas/         # Pydantic request/response schemas
-  services/        # LLM, database, memory services
-alembic/           # Database migrations
-evals/             # LLM evaluation framework
+
+If the target already has `AGENTS.md`, `docs/`, or `scripts/`, choose one:
+
+```bash
+# Update an existing Harness repo without moving existing files
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --yes
+
+# Back up and replace AGENTS.md, docs/, and scripts/
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --override --yes
+```
+
+```powershell
+# Update an existing Harness repo without moving existing files
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Merge -Yes
+
+# Back up and replace AGENTS.md, docs/, and scripts/
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Override -Yes
+```
+
+Use `--merge` when a project already has Harness and you want to append newly
+added Harness files without moving the existing `AGENTS.md`, `docs/`, or
+`scripts/` paths into backup. Existing files stay untouched; only missing
+Harness files are created.
+
+For older Harness installs whose `AGENTS.md` still contains the full generated
+operating guide, refresh it into the small stable shim:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --refresh-agent-shim --yes
+```
+
+The refresh backs up the existing file. If it detects the old
+Harness-generated guide, it replaces it with the shim. If the file appears
+custom, it appends or updates a marked Harness block instead of overwriting the
+project's local instructions.
+
+If the project is driven with Claude Code, add `--claude`. Claude Code never
+auto-loads `AGENTS.md`, so without this the installed harness is invisible to
+fresh sessions. The flag installs (or refreshes) a `CLAUDE.md` whose marked
+Harness block `@`-imports `AGENTS.md` and `docs/FEATURE_INTAKE.md` into every
+session's context. An existing `CLAUDE.md` gets the block appended after a
+backup; plain installs without the flag never touch `CLAUDE.md`:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --claude --yes
+```
+
+Or install into a specific path:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --directory /path/to/project --yes
+```
+
+```powershell
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Directory C:\path\to\project -Yes
+```
+
+Use `--dry-run` on Bash or `-DryRun` on PowerShell to preview changes before
+writing files.
+
+The installer also downloads the prebuilt Harness CLI for the current platform,
+verifies its `.sha256` checksum, and installs it at
+`scripts/bin/harness-cli` on macOS/Linux or `scripts/bin/harness-cli.exe` on
+Windows. The Rust CLI is the main Harness tool and stable command path.
+
+Harness CLI release assets are published from tags by the
+`Harness CLI Release` GitHub Actions workflow. The installer expects each
+release to include `harness-cli-<platform>` and
+`harness-cli-<platform>.sha256` assets for macOS arm64, macOS x64, Linux x64,
+Linux arm64, and Windows x64. The Windows asset is
+`harness-cli-windows-x64.exe` plus `harness-cli-windows-x64.exe.sha256`.
+
+## Try The Flow
+
+The fastest way to understand the harness is to inspect the tiny demo:
+
+- `docs/demo/README.md`: shows how a simple product idea becomes product docs,
+  stories, validation expectations, and decisions before implementation starts.
+
+A typical flow looks like this:
+
+```text
+human intent or product spec
+  -> product contract
+  -> feature intake
+  -> story packet
+  -> validation expectations
+  -> implementation work
+  -> decision or lesson captured for future agents
+```
+
+Implementation prompts do not go straight to code. They first pass through
+feature intake, become story-sized work when needed, and then carry both product
+validation and harness maintenance expectations.
+
+## Current State
+
+This repository is in Harness v0.
+
+There is no application implementation and no baked-in product specification
+yet. The current work is the reusable project harness: the file structure,
+agent operating model, feature intake process, story templates, and validation
+expectations that help humans and agents turn a future user-provided spec into
+implementation work.
+
+## Product Sources
+
+No product contract is currently defined.
+
+When a user provides a project specification, add or reference it as the input
+spec for the first buildout, then derive smaller living artifacts from it:
+
+- `docs/product/`: current product contract files, created from the spec.
+- `docs/stories/`: story packets and backlog created from selected work.
+- `docs/TEST_MATRIX.md`: behavior-to-proof control panel.
+- `docs/decisions/`: durable decisions and tradeoffs.
+
+Do not keep a project-specific spec or product breakdown in this harness until
+a real project supplies one.
+
+## Repository Structure
+
+```text
+project/
+  AGENTS.md
+  README.md
+  docs/
+    HARNESS.md
+    FEATURE_INTAKE.md
+    ARCHITECTURE.md
+    TEST_MATRIX.md
+    HARNESS_BACKLOG.md
+    product/
+    stories/
+    decisions/
+    demo/
+    templates/
+  scripts/
+    README.md
 ```
 
 ## Contributing
 
-PRs welcome. Please read [docs/getting-started.md](docs-spec/getting-started.md) to get your environment set up, then follow the coding conventions in [AGENTS.md](AGENTS.md).
+This project is early and benefits most from real-world agent failure cases,
+example harness installs, docs improvements, and reusable workflow patterns.
+See `CONTRIBUTING.md` for contribution ideas.
 
-Report security issues privately — see [SECURITY.md](SECURITY.md).
+Useful contributions include:
 
-## License
+- Show how the harness works in a real project.
+- Add missing templates or improve existing ones.
+- Propose validation patterns for different stacks.
+- Share failures where an agent made the wrong change because the repo lacked
+  context.
+- Compare harness behavior across Claude Code, Codex, Cursor, and other tools.
 
-See [LICENSE](LICENSE).
+## Share
 
-## FAQ
+If this idea resonates, please star the repo and share it with someone building
+with coding agents.
 
-### General
+Short description:
 
-**What is this template?**
-A production-ready foundation for AI agent backends built on FastAPI + LangGraph. It bundles the components you'd otherwise wire up by hand: stateful conversations, long-term memory, tool calling, observability, rate limiting, and JWT auth.
-
-**How does this differ from a basic LangGraph setup?**
-The base LangGraph quickstart stops at "agent runs locally". This template adds Alembic migrations, mem0 + pgvector long-term memory, Langfuse tracing, Prometheus + Grafana dashboards, JWT sessions, slowapi rate limiting, structured logging with per-request context, and a circular-fallback LLM service — production concerns you'd otherwise build separately.
-
-### Setup & Configuration
-
-**Do I need Docker?**
-Recommended but not required. `make docker-up` starts the API + PostgreSQL together. For local-only setup see [docs/getting-started.md](docs-spec/getting-started.md).
-
-**Which LLM providers are supported?**
-Today: **OpenAI only** via the `LLMRegistry` in `app/services/llm/registry.py`. Multi-provider support (Anthropic, Google, OpenRouter) via LangChain's `init_chat_model` is planned — see [#51](https://github.com/wassim249/fastapi-langgraph-agent-production-ready-template/issues/51). Configure your model via `DEFAULT_LLM_MODEL` in `.env.development`.
-
-**How do I configure long-term memory?**
-Long-term memory is self-hosted: mem0 runs in-process and persists into your existing PostgreSQL via pgvector — there is no separate mem0 cloud account or API key. You only need a working `OPENAI_API_KEY` (used for fact extraction + embeddings) and the pgvector extension enabled. See [docs/memory.md](docs-spec/memory.md) for details.
-
-### Development
-
-**How do I add a custom tool?**
-Drop a LangChain `@tool`-decorated function in `app/core/langgraph/tools/` and register it in the `tools` list exported from that package. The agent picks it up on next start; no graph changes needed.
-
-**How does the LLM service handle failures?**
-Two layers: (1) per-call exponential-backoff retry via `tenacity`, (2) **circular fallback** — if the active model exhausts its retries, the service rotates to the next model in `LLMRegistry` and continues. A total timeout budget caps the whole call so latency stays bounded. See [docs/llm-service.md](docs-spec/llm-service.md).
-
-**Can I use this without Langfuse?**
-Yes. Set `LANGFUSE_TRACING_ENABLED=false` (or omit the Langfuse keys). The agent runs unchanged; structured logs still capture request/session/user context.
-
-### Troubleshooting
-
-**The API won't start**
-- Ensure PostgreSQL is running (`make docker-up` brings it up alongside the API)
-- Confirm `.env.development` exists — copy from `.env.example` and fill in required keys
-- Apply migrations: `make migrate`
-
-**Memory / semantic search returns nothing**
-- Verify the `pgvector` extension is enabled in your PostgreSQL instance
-- Confirm `OPENAI_API_KEY` is valid (mem0 calls OpenAI for fact extraction + embeddings)
-- Check `LONG_TERM_MEMORY_MODEL` and `LONG_TERM_MEMORY_EMBEDDER_MODEL` are set in `.env.development`
-
-**Rate limiting is too aggressive**
-Limits are defined in `app/core/limiter.py` (slowapi). Adjust per-route decorators or the default rate in that file. See [docs/configuration.md](docs-spec/configuration.md) for the related env vars.
+> An agent-ready repo harness for Claude Code, Codex, Cursor, and other coding
+> agents: AGENTS.md, product contracts, story packets, validation matrix, and
+> decision records.
